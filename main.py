@@ -3,6 +3,7 @@ from textblob import TextBlob
 from textblob import Word
 from textblob.sentiments import NaiveBayesAnalyzer
 import requests
+from settings.py import NEWSAPI_KEY
 
 
 # Process data
@@ -19,7 +20,7 @@ def get_sentiment(text):
 
 
 def get_stock_sentiment(stock):
-    api_key = '96a4926ec75b4a8491cbd30b8a348c63'
+    api_key = NEWSAPI_KEY
     url = f'https://newsapi.org/v2/everything?q={stock}&from=2023-08-01&to=2023-08-12&apiKey={api_key}'
 
     try:
