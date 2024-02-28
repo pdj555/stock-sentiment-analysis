@@ -37,7 +37,7 @@ def get_stock_sentiment(stock):
             text = ' '.join(filter(None, [title, description]))
             text = preprocess_text(text)
 
-            sentiment = get_sentiment(text)
+            sentiment = get_sentiment(text) # returns pos or neg depending on if the article is possitive or negitive
             if sentiment == 'pos':
                 sentiments.append(1)
             elif sentiment == 'neg':
@@ -54,4 +54,4 @@ def get_stock_sentiment(stock):
 
 
 
-get_stock_sentiment('AAPL')
+get_stock_sentiment('TSLA')
