@@ -22,8 +22,3 @@ get_stock_sentiment('TSLA')  # Replace 'TSLA' with your target stock ticker
 ```
 
 The function will output the average sentiment score for the specified stock based on the fetched news articles.
-
-## API Key
-
-You must replace the `api_key` variable's placeholder value with your actual API key from NewsAPI.
-
