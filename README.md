@@ -11,7 +11,11 @@ pip install nltk textblob requests
 python -m textblob.download_corpora
 ```
 
-Make sure you have an API key from NewsAPI, which you will insert into the `api_key` variable in `main.py`.
+Make sure you have an API key from NewsAPI, which you will insert into a `.env` file within your directory. The `.env` file should contain:
+
+```
+NEWSAPI_KEY=your_api_key
+```
 
 ## Usage
 
