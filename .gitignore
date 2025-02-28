@@ -1,1 +1,6 @@
 .env
+.venv/
+.idea/
+.vscode/
+__pycache__/
+repomix-output.txt

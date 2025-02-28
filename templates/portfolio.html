@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Portfolio Analysis - InvestSense</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .sentiment-positive {
+            color: #198754;
+            font-weight: bold;
+        }
+        
+        .sentiment-negative {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .sentiment-neutral {
+            color: #fd7e14;
+            font-weight: bold;
+        }
+        
+        .portfolio-summary {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stock-card {
+            transition: transform 0.3s;
+        }
+        
+        .stock-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">InvestSense</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/portfolio">Portfolio</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="stocksDropdown" role="button"
+                            data-bs-toggle="dropdown">
+                            Stocks
+                        </a>
+                        <ul class="dropdown-menu" id="stocksList">
+                            <li><a class="dropdown-item" href="/dashboard/AAPL">AAPL</a></li>
+                            <li><a class="dropdown-item" href="/dashboard/MSFT">MSFT</a></li>
+                            <li><a class="dropdown-item" href="/dashboard/GOOGL">GOOGL</a></li>
+                            <li><a class="dropdown-item" href="/dashboard/AMZN">AMZN</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                <form class="d-flex ms-auto" id="portfolioForm">
+                    <input class="form-control me-2" type="text" id="stocksInput" placeholder="AAPL,MSFT,GOOGL,AMZN"
+                        value="{{ ','.join(stocks) }}">
+                    <button class="btn btn-outline-light" type="submit">Update</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h1 class="mb-4">Portfolio Sentiment Analysis</h1>
+        
+        {% if error %}
+        <div class="alert alert-danger mb-4" role="alert">
+            {{ error }}
+            <button type="button" class="btn-close float-end" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
+
+        <!-- Portfolio Summary -->
+        <div class="portfolio-summary">
+            <div class="row">
+                <div class="col-md-6">
+                    <h3>Portfolio Sentiment</h3>
+                    {% if portfolio_sentiment > 0.3 %}
+                    <p class="sentiment-positive">POSITIVE ({{ "%.2f"|format(portfolio_sentiment) }})</p>
+                    {% elif portfolio_sentiment < -0.3 %}
+                    <p class="sentiment-negative">NEGATIVE ({{ "%.2f"|format(portfolio_sentiment) }})</p>
+                    {% else %}
+                    <p class="sentiment-neutral">NEUTRAL ({{ "%.2f"|format(portfolio_sentiment) }})</p>
+                    {% endif %}
+                    <p>Based on weighted sentiment analysis across {{ stocks|length }} stocks</p>
+                </div>
+                <div class="col-md-6">
+                    <h3>Sentiment Distribution</h3>
+                    <div id="sentimentDistribution"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sentiment Trend Chart -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Sentiment Trends</h5>
+            </div>
+            <div class="card-body">
+                {% if sentiment_trend %}
+                <div id="trendChart"></div>
+                {% else %}
+                <p class="text-center">No trend data available</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Stock Cards -->
+        <h2 class="mb-3">Portfolio Stocks</h2>
+        <div class="row">
+            {% for symbol, data in portfolio_data.items() %}
+            <div class="col-md-4 mb-4">
+                <div class="card stock-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ symbol }}</h5>
+                        {% if data.sentiment > 0.3 %}
+                        <span class="badge bg-success">Positive</span>
+                        {% elif data.sentiment < -0.3 %}
+                        <span class="badge bg-danger">Negative</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">Neutral</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Sentiment Score:</strong> {{ "%.2f"|format(data.sentiment) }}</p>
+                        <p><strong>Confidence:</strong> {{ "%.2f"|format(data.magnitude) }}</p>
+                        <p><strong>Last Updated:</strong> {{ data.date.strftime('%Y-%m-%d') }}</p>
+                        <a href="/dashboard/{{ symbol }}" class="btn btn-primary">View Analysis</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Correlation Analysis -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">Sentiment-Price Correlation Analysis</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Correlation</th>
+                                <th>Predictive Power</th>
+                                <th>Lag (Days)</th>
+                                <th>Data Points</th>
+                            </tr>
+                        </thead>
+                        <tbody id="correlationTable">
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>InvestSense</h5>
+                    <p>Advanced stock sentiment analysis platform</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p>&copy; 2025 InvestSense. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Pass data from Flask to JavaScript -->
+    <script>
+        // Initialize variables with default empty values
+        var STOCKS = [];
+        var PORTFOLIO_DATA = {};
+        var SENTIMENT_TREND = [];
+        
+        // Safely parse data from Flask
+        try {
+            STOCKS = JSON.parse('{{ stocks|tojson|safe }}');
+            PORTFOLIO_DATA = JSON.parse('{{ portfolio_data|tojson|safe }}');
+            SENTIMENT_TREND = JSON.parse('{{ sentiment_trend|tojson|safe }}');
+        } catch (e) {
+            console.error('Error parsing data from Flask:', e);
+        }
+    </script>
+    
+    <!-- Main JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle portfolio form submission
+            document.getElementById('portfolioForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                var stocks = document.getElementById('stocksInput').value.trim();
+                if (stocks) {
+                    window.location.href = '/portfolio?stocks=' + encodeURIComponent(stocks);
+                }
+            });
+            
+            // Create sentiment distribution chart
+            createSentimentDistribution();
+            
+            // Create trend chart if data available
+            if (SENTIMENT_TREND && SENTIMENT_TREND.length > 0) {
+                createTrendChart();
+            }
+            
+            // Load correlation data for each stock
+            loadCorrelationData();
+        });
+        
+        function createSentimentDistribution() {
+            var symbols = [];
+            var sentiments = [];
+            var colors = [];
+            
+            for (var symbol in PORTFOLIO_DATA) {
+                symbols.push(symbol);
+                sentiments.push(PORTFOLIO_DATA[symbol].sentiment);
+                
+                // Set color based on sentiment
+                if (PORTFOLIO_DATA[symbol].sentiment > 0.3) {
+                    colors.push('#198754'); // Green for positive
+                } else if (PORTFOLIO_DATA[symbol].sentiment < -0.3) {
+                    colors.push('#dc3545'); // Red for negative
+                } else {
+                    colors.push('#fd7e14'); // Orange for neutral
+                }
+            }
+            
+            var data = [{
+                type: 'bar',
+                x: symbols,
+                y: sentiments,
+                marker: {
+                    color: colors
+                }
+            }];
+            
+            var layout = {
+                height: 200,
+                margin: {
+                    l: 40,
+                    r: 20,
+                    t: 20,
+                    b: 40
+                },
+                yaxis: {
+                    title: 'Sentiment Score',
+                    range: [-1, 1]
+                }
+            };
+            
+            Plotly.newPlot('sentimentDistribution', data, layout, {responsive: true});
+        }
+        
+        function createTrendChart() {
+            var data = [];
+            var symbols = [...new Set(SENTIMENT_TREND.map(item => item.symbol))];
+            
+            // Create a trace for each symbol
+            symbols.forEach(function(symbol) {
+                var symbolData = SENTIMENT_TREND.filter(item => item.symbol === symbol);
+                
+                data.push({
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: symbol,
+                    x: symbolData.map(item => item.date),
+                    y: symbolData.map(item => item.score)
+                });
+            });
+            
+            var layout = {
+                title: 'Sentiment Trends Over Time',
+                xaxis: {
+                    title: 'Date'
+                },
+                yaxis: {
+                    title: 'Sentiment Score',
+                    range: [-1, 1]
+                },
+                legend: {
+                    orientation: 'h',
+                    y: -0.2
+                }
+            };
+            
+            Plotly.newPlot('trendChart', data, layout, {responsive: true});
+        }
+        
+        function loadCorrelationData() {
+            var correlationTable = document.getElementById('correlationTable');
+            var loadedCount = 0;
+            
+            // Clear existing rows
+            correlationTable.innerHTML = '';
+            
+            // Add loading row
+            var loadingRow = document.createElement('tr');
+            loadingRow.innerHTML = '<td colspan="5" class="text-center">Loading correlation data...</td>';
+            correlationTable.appendChild(loadingRow);
+            
+            // Load correlation data for each stock
+            STOCKS.forEach(function(symbol) {
+                fetch('/api/correlation/' + symbol)
+                    .then(response => response.json())
+                    .then(data => {
+                        loadedCount++;
+                        
+                        // Remove loading row when first data arrives
+                        if (loadedCount === 1) {
+                            correlationTable.innerHTML = '';
+                        }
+                        
+                        if (data && !data.error) {
+                            var row = document.createElement('tr');
+                            
+                            // Determine correlation class
+                            var corrClass = '';
+                            if (Math.abs(data.correlation) > 0.5) {
+                                corrClass = data.correlation > 0 ? 'text-success' : 'text-danger';
+                            }
+                            
+                            row.innerHTML = 
+                                '<td><a href="/dashboard/' + symbol + '">' + symbol + '</a></td>' +
+                                '<td class="' + corrClass + '">' + data.correlation.toFixed(2) + '</td>' +
+                                '<td>' + data.predictive_power.toFixed(1) + '%</td>' +
+                                '<td>' + data.lag_days + '</td>' +
+                                '<td>' + data.data_points + '</td>';
+                                
+                            correlationTable.appendChild(row);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching correlation data for ' + symbol + ':', error);
+                        loadedCount++;
+                        
+                        // Remove loading row when first error arrives
+                        if (loadedCount === 1) {
+                            correlationTable.innerHTML = '';
+                        }
+                        
+                        // Add error row
+                        var row = document.createElement('tr');
+                        row.innerHTML = 
+                            '<td>' + symbol + '</td>' +
+                            '<td colspan="4" class="text-danger">Error loading correlation data</td>';
+                        correlationTable.appendChild(row);
+                    });
+            });
+        }
+    </script>
+</body>
+
+</html>
