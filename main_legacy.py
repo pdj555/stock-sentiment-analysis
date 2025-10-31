@@ -3,7 +3,7 @@ from textblob import TextBlob
 from textblob import Word
 from textblob.sentiments import NaiveBayesAnalyzer
 import requests
-from settings import NEWSAPI_KEY
+from settings_legacy import NEWSAPI_KEY
 
 
 # Process data
@@ -37,7 +37,7 @@ def get_stock_sentiment(stock):
             text = ' '.join(filter(None, [title, description]))
             text = preprocess_text(text)
 
-            sentiment = get_sentiment(text) # returns pos or neg depending on if the article is possitive or negitive
+            sentiment = get_sentiment(text)  # returns pos or neg depending on if the article is positive or negative
             if sentiment == 'pos':
                 sentiments.append(1)
             elif sentiment == 'neg':

@@ -1,11 +1,5 @@
-# Environment variables
-.env
-
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
+# Docker
+.dockerignore
 
 # Python
 __pycache__/
@@ -29,12 +23,14 @@ wheels/
 .installed.cfg
 *.egg
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-coverage.xml
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
 # IDE
 .idea/
@@ -43,14 +39,21 @@ coverage.xml
 *.swo
 *~
 
-# Logs
-*.log
-logs/
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
 
 # OS
 .DS_Store
 Thumbs.db
 
+# Logs
+*.log
+logs/
+
 # Data
 *.csv
+*.json
 data/
