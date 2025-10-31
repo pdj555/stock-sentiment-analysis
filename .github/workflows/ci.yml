@@ -32,7 +32,7 @@ jobs:
 
     - name: Download NLTK data
       run: |
-        python -c "import nltk; nltk.download('stopwords', quiet=True); nltk.download('movie_reviews', quiet=True); nltk.download('punkt', quiet=True)"
+        python -c "import nltk; nltk.download('stopwords'); nltk.download('movie_reviews'); nltk.download('punkt')"
 
     - name: Run tests
       run: |
