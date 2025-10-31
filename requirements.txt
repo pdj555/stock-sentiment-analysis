@@ -1,0 +1,25 @@
+# Core dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Sentiment Analysis
+nltk==3.8.1
+textblob==0.17.1
+
+# HTTP Client
+requests==2.31.0
+httpx==0.25.1
+
+# Environment Management
+python-dotenv==1.0.0
+
+# Caching
+redis==5.0.1
+
+# Logging and Monitoring
+python-json-logger==2.0.7
+
+# Security
+python-multipart==0.0.6
