@@ -26,8 +26,6 @@ RUN python -c "import nltk; nltk.download('stopwords', quiet=True); nltk.downloa
 
 # Copy application code
 COPY app/ ./app/
-COPY main.py .
-COPY settings.py .
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && \
