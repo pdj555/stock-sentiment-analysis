@@ -6,35 +6,40 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements-dev.txt
-    
+
     - name: Download NLTK data
       run: |
         python -c "import nltk; nltk.download('stopwords', quiet=True); nltk.download('movie_reviews', quiet=True); nltk.download('punkt', quiet=True)"
-    
+
     - name: Run tests
       run: |
         pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
       env:
         NEWSAPI_KEY: test_key
-    
+
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
@@ -44,25 +49,27 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install black flake8
-    
+
     - name: Check code formatting with Black
       run: |
         black --check app/ tests/
-    
+
     - name: Lint with flake8
       run: |
         flake8 app/ tests/ --max-line-length=100 --extend-ignore=E203,W503
@@ -72,13 +79,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, lint]
     if: github.event_name == 'push'
-    
+    permissions:
+      contents: read
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    
+
     - name: Build Docker image
       uses: docker/build-push-action@v5
       with:
