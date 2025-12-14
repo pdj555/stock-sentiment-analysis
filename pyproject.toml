@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stock-sentiment-analysis"
+version = "0.1.0"
+description = "News-driven stock sentiment scoring via OpenAI"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[project.scripts]
+stock-sentiment = "stock_sentiment.cli:_entrypoint"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["stock_sentiment*"]
