@@ -1,0 +1,26 @@
+{
+  "timeout": 86400,
+  "max_duration_seconds": 86400,
+  "allow_long_running": true,
+  "keep_alive": true,
+  "mode": "code_improvement",
+  "auto_apply": true,
+  "focus_areas": [
+    "code_quality",
+    "bug_fixes",
+    "refactoring",
+    "error_handling",
+    "type_hints",
+    "documentation",
+    "performance",
+    "testing"
+  ],
+  "behavior": {
+    "proactive": true,
+    "make_changes": true,
+    "fix_issues_immediately": true,
+    "refactor_continuously": true,
+    "add_tests": true,
+    "improve_documentation": true
+  }
+}

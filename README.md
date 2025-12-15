@@ -1,28 +1,48 @@
-# Stock Sentiment Analysis Tool
+# Stock Sentiment Analysis
 
-## Description
-This Python tool automates the process of sentiment analysis for news articles related to a given stock symbol. It utilizes the Natural Language Toolkit (NLTK) to preprocess the text, removing stopwords, and then applies the TextBlob library's NaiveBayesAnalyzer to determine the sentiment of the text. The tool calculates the average sentiment score from multiple news articles to provide an overview of the current sentiment towards a stock.
+Fetch recent news for a ticker and compute a sentiment score using the OpenAI API.
 
-## Installation
-To run this tool, you will need Python and several dependencies. Install them using the following commands:
+## Setup
+
+1. Create a local `.env` file (optional) in the project root:
 
 ```bash
-pip install nltk textblob requests
-python -m textblob.download_corpora
+OPENAI_API_KEY=...
+# Optional (only needed for --source newsapi; otherwise Google News RSS is used)
+NEWSAPI_KEY=...
+# Optional
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-Make sure you have an API key from NewsAPI, which you will insert into a `.env` file within your directory. The `.env` file should contain:
+2. (Optional) Install a CLI entrypoint:
 
-```
-NEWSAPI_KEY=your_api_key
-```
-
-## Usage
-
-To analyze the sentiment for a particular stock, run the `get_stock_sentiment` function with the stock ticker as a string argument. For example:
-
-```python
-get_stock_sentiment('TSLA')  # Replace 'TSLA' with your target stock ticker
+```bash
+python3 -m pip install -e .
 ```
 
-The function will output the average sentiment score for the specified stock based on the fetched news articles.
+3. Run an analysis:
+
+```bash
+python3 -m stock_sentiment analyze TSLA
+python3 -m stock_sentiment analyze TSLA --days 7 --max-articles 50 --format json --include-reasons
+python3 -m stock_sentiment analyze TSLA --source google-rss
+```
+
+Notes:
+- Default output is a single-line text summary; use `--format json` for structured output.
+- By default `--source auto` uses NewsAPI when `NEWSAPI_KEY` is set, otherwise Google News RSS.
+- In `--source auto`, if NewsAPI fails the CLI falls back to Google News RSS.
+- `OPENAI_API_KEY` is required unless all needed per-article classifications are already cached.
+- Add `--include-articles` to embed article metadata in JSON output.
+- Add `--verbose` to print per-article sentiment details in text mode.
+- OpenAI results are cached locally by default (see `--cache-dir`, `--no-cache`, `--cache-ttl-hours`).
+- JSON output includes `source` and `lookback_days` fields for downstream systems.
+
+Disclaimer: This tool is for informational purposes only and is not financial advice.
+
+## Tests
+
+```bash
+python3 -m unittest discover -s tests -p "test_*.py"
+```
