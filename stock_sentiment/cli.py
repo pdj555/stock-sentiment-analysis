@@ -11,7 +11,11 @@ from urllib.parse import urlsplit
 from stock_sentiment import __version__
 from stock_sentiment.cache import JsonDiskCache
 from stock_sentiment.env import load_dotenv
-from stock_sentiment.errors import ConfigurationError, RemoteApiError, StockSentimentError
+from stock_sentiment.errors import (
+    ConfigurationError,
+    RemoteApiError,
+    StockSentimentError,
+)
 from stock_sentiment.google_rss import fetch_google_news_rss
 from stock_sentiment.newsapi import fetch_everything
 from stock_sentiment.sentiment import OpenAISentimentConfig, analyze_with_cache
@@ -54,16 +58,32 @@ def build_parser() -> argparse.ArgumentParser:
             "  stock-sentiment analyze TSLA --source google-rss --days 7\n"
         ),
     )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     analyze = sub.add_parser("analyze", help="Analyze sentiment for a stock ticker")
     analyze.add_argument("ticker", help="Stock ticker symbol (e.g., TSLA)")
     analyze.add_argument("--query", help="Search query (defaults to ticker)")
-    analyze.add_argument("--days", type=int, default=3, help="Lookback window in days (default: 3)")
-    analyze.add_argument("--max-articles", type=int, default=25, help="Max articles to analyze (default: 25)")
-    analyze.add_argument("--half-life-hours", type=float, default=24.0, help="Recency half-life for weighting (default: 24)")
-    analyze.add_argument("--format", choices=["text", "json"], default="text", help="Output format")
+    analyze.add_argument(
+        "--days", type=int, default=3, help="Lookback window in days (default: 3)"
+    )
+    analyze.add_argument(
+        "--max-articles",
+        type=int,
+        default=25,
+        help="Max articles to analyze (default: 25)",
+    )
+    analyze.add_argument(
+        "--half-life-hours",
+        type=float,
+        default=24.0,
+        help="Recency half-life for weighting (default: 24)",
+    )
+    analyze.add_argument(
+        "--format", choices=["text", "json"], default="text", help="Output format"
+    )
     analyze.add_argument(
         "--include-reasons",
         action="store_true",
@@ -74,28 +94,61 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Include article metadata in JSON output",
     )
-    analyze.add_argument("--verbose", action="store_true", help="Print per-article details (text output)")
+    analyze.add_argument(
+        "--verbose", action="store_true", help="Print per-article details (text output)"
+    )
     analyze.add_argument(
         "--source",
         choices=["auto", "newsapi", "google-rss"],
         default="auto",
         help="News source (default: auto)",
     )
-    analyze.add_argument("--no-cache", action="store_true", help="Disable local caching of OpenAI results")
-    analyze.add_argument("--cache-ttl-hours", type=float, default=24.0, help="Cache TTL in hours (default: 24)")
-    analyze.add_argument("--cache-dir", type=Path, default=_default_cache_dir(), help="Cache directory path")
-    analyze.add_argument("--model", default=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"), help="OpenAI model name")
-    analyze.add_argument("--openai-base-url", default=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"))
-    analyze.add_argument("--dotenv", type=Path, default=Path(".env"), help="Optional .env path (default: .env)")
+    analyze.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable local caching of OpenAI results",
+    )
+    analyze.add_argument(
+        "--cache-ttl-hours",
+        type=float,
+        default=24.0,
+        help="Cache TTL in hours (default: 24)",
+    )
+    analyze.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=_default_cache_dir(),
+        help="Cache directory path",
+    )
+    analyze.add_argument(
+        "--model",
+        default=os.environ.get("OPENAI_MODEL", "gpt-5-nano-2025-08-07"),
+        help="OpenAI model name",
+    )
+    analyze.add_argument(
+        "--openai-base-url",
+        default=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+    )
+    analyze.add_argument(
+        "--dotenv",
+        type=Path,
+        default=Path(".env"),
+        help="Optional .env path (default: .env)",
+    )
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Load default .env before parsing arguments so defaults can read from it
+    load_dotenv(Path(".env"))
+
     args = build_parser().parse_args(argv)
 
     if args.command == "analyze":
-        load_dotenv(args.dotenv)
+        # Load user-specified .env if different from default (won't overwrite existing vars)
+        if args.dotenv != Path(".env"):
+            load_dotenv(args.dotenv)
 
         openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
         newsapi_key = os.environ.get("NEWSAPI_KEY", "").strip()
@@ -106,7 +159,9 @@ def main(argv: list[str] | None = None) -> int:
         if any(ch.isspace() for ch in ticker):
             raise ConfigurationError("Ticker cannot contain whitespace.")
         if len(ticker) > 24:
-            raise ConfigurationError("Ticker looks too long; expected a symbol like TSLA.")
+            raise ConfigurationError(
+                "Ticker looks too long; expected a symbol like TSLA."
+            )
 
         query = (args.query or ticker).strip()
         if not query:
@@ -130,7 +185,9 @@ def main(argv: list[str] | None = None) -> int:
             raise ConfigurationError("--openai-base-url cannot be empty.")
         base_split = urlsplit(openai_base_url)
         if base_split.scheme not in {"http", "https"} or not base_split.netloc:
-            raise ConfigurationError("--openai-base-url must be an http(s) URL (e.g., https://api.openai.com/v1).")
+            raise ConfigurationError(
+                "--openai-base-url must be an http(s) URL (e.g., https://api.openai.com/v1)."
+            )
 
         now = datetime.now(timezone.utc)
         lookback_days = int(args.days)
@@ -141,16 +198,23 @@ def main(argv: list[str] | None = None) -> int:
         if source_used == "auto":
             source_used = "newsapi" if newsapi_key else "google-rss"
         if source_used == "newsapi" and not newsapi_key:
-            raise ConfigurationError("Missing NEWSAPI_KEY (required when --source=newsapi).")
+            raise ConfigurationError(
+                "Missing NEWSAPI_KEY (required when --source=newsapi)."
+            )
 
         if source_used == "newsapi":
             try:
                 from_date = from_dt.date().isoformat()
-                articles = fetch_everything(api_key=newsapi_key, query=query, from_date=from_date, page_size=100)
+                articles = fetch_everything(
+                    api_key=newsapi_key, query=query, from_date=from_date, page_size=100
+                )
             except RemoteApiError as e:
                 if source_requested != "auto":
                     raise
-                print(f"NewsAPI failed ({e}); falling back to Google News RSS.", file=sys.stderr)
+                print(
+                    f"NewsAPI failed ({e}); falling back to Google News RSS.",
+                    file=sys.stderr,
+                )
                 source_used = "google-rss"
                 articles = fetch_google_news_rss(query=query, from_datetime=from_dt)
         else:
@@ -190,7 +254,9 @@ def main(argv: list[str] | None = None) -> int:
                 articles=unique,
                 cache=cache,
                 cache_ttl_seconds=ttl_seconds,
-                openai=OpenAISentimentConfig(api_key=openai_key, model=model, base_url=openai_base_url),
+                openai=OpenAISentimentConfig(
+                    api_key=openai_key, model=model, base_url=openai_base_url
+                ),
                 include_reasons=bool(args.include_reasons),
                 half_life_hours=float(args.half_life_hours),
             )
@@ -209,7 +275,9 @@ def main(argv: list[str] | None = None) -> int:
                 payload["articles"] = [a.to_dict() for a in unique]
             print(json.dumps(payload, indent=2, ensure_ascii=False))
         else:
-            print(_format_text(summary, source=source_used, lookback_days=lookback_days))
+            print(
+                _format_text(summary, source=source_used, lookback_days=lookback_days)
+            )
             if args.verbose:
                 article_by_id = {a.article_id: a for a in unique}
                 for r in summary.results:
