@@ -23,7 +23,7 @@ from stock_sentiment.errors import (
 from stock_sentiment.google_rss import fetch_google_news_rss
 from stock_sentiment.newsapi import fetch_everything
 from stock_sentiment.sentiment import OpenAISentimentConfig, analyze_with_cache
-from stock_sentiment.types import SentimentSummary
+from stock_sentiment.types import NewsArticle, SentimentSummary
 
 
 def _default_cache_dir() -> Path:
@@ -68,7 +68,7 @@ def _fetch_google_news_rss_with_guidance(
     from_datetime: datetime,
     source_requested: str,
     newsapi_key_present: bool,
-):
+) -> list[NewsArticle]:
     try:
         return fetch_google_news_rss(query=query, from_datetime=from_datetime)
     except RemoteApiError as e:
