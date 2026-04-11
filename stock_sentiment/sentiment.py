@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from stock_sentiment import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 from stock_sentiment.cache import JsonDiskCache
 from stock_sentiment.errors import ConfigurationError, ParseError
 from stock_sentiment.openai_client import create_response, extract_output_text
@@ -96,8 +97,8 @@ def _response_schema(include_reasons: bool) -> dict[str, Any]:
 @dataclass(frozen=True)
 class OpenAISentimentConfig:
     api_key: str
-    model: str = "gpt-4o-mini"
-    base_url: str = "https://api.openai.com/v1"
+    model: str = DEFAULT_OPENAI_MODEL
+    base_url: str = DEFAULT_OPENAI_BASE_URL
     temperature: float = 0.2
     max_output_tokens: int = 900
     timeout_seconds: float = 45.0

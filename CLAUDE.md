@@ -13,7 +13,7 @@ This is a stdlib-only Python CLI that fetches recent news for a stock ticker and
 - No third-party runtime dependencies
 
 ### Environment Configuration
-A `.env` file is optional in the project root. The CLI loads `./.env` by default, or `--env-file PATH` to use a different file, without overwriting existing environment variables.
+A `.env` file is optional in the current working directory. The CLI loads `./.env` by default, or `--env-file PATH` to use a different file, without overwriting existing environment variables. In this repo that usually means the repository root.
 
 Required:
 ```

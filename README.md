@@ -15,7 +15,7 @@ If you want `--source auto` to prefer NewsAPI before falling back to Google News
 
 ## Configuration
 
-You can keep secrets in the shell or in a local `.env` file in the project root:
+You can keep secrets in the shell or in a local `./.env` file in your current working directory:
 
 ```bash
 OPENAI_API_KEY=...
@@ -26,7 +26,7 @@ OPENAI_MODEL=gpt-5-nano-2025-08-07
 OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-Use `--env-file PATH` to read env vars from a different file instead of `./.env`.
+When working in this repository, that usually means the repository root. Use `--env-file PATH` to read env vars from a different file instead of `./.env`.
 
 ## Installation
 

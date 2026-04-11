@@ -6,12 +6,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+from stock_sentiment import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 from stock_sentiment.cache import JsonDiskCache
 from stock_sentiment.sentiment import OpenAISentimentConfig, analyze_with_cache
 from stock_sentiment.types import ArticleSentiment, NewsArticle
 
 
 class TestCacheAndAnalysis(unittest.TestCase):
+    def test_openai_sentiment_config_uses_shared_defaults(self) -> None:
+        config = OpenAISentimentConfig(api_key="test")
+
+        self.assertEqual(config.model, DEFAULT_OPENAI_MODEL)
+        self.assertEqual(config.base_url, DEFAULT_OPENAI_BASE_URL)
+
     def test_json_disk_cache_roundtrip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cache = JsonDiskCache(Path(tmp))

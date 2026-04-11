@@ -124,7 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  stock-sentiment analyze TSLA\n\n"
             "Notes:\n"
             "  --source auto prefers NewsAPI when NEWSAPI_KEY is set, otherwise Google News RSS.\n"
-            "  --env-file PATH reads env vars from PATH instead of ./.env.\n"
+            "  --env-file PATH reads env vars from PATH instead of ./.env in the current working directory.\n"
         ),
     )
     analyze.add_argument("ticker", help="Stock ticker symbol (e.g., TSLA)")
@@ -323,7 +323,10 @@ def main(argv: list[str] | None = None) -> int:
         if not args.no_cache:
             ttl_seconds = float(args.cache_ttl_hours) * 3600.0
             try:
-                cache = JsonDiskCache(args.cache_dir)
+                cache = JsonDiskCache(
+                    args.cache_dir,
+                    warn=lambda message: print(message, file=sys.stderr),
+                )
             except OSError as e:
                 cache = None
                 ttl_seconds = None

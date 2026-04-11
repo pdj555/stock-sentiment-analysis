@@ -173,3 +173,43 @@ class TestCli(unittest.TestCase):
         self.assertIn("Google News RSS request failed.", message)
         self.assertIn("Set NEWSAPI_KEY to let auto prefer NewsAPI.", message)
         self.assertIn("certificate verify failed", message)
+
+    def test_cli_prints_cache_warning_when_cache_read_fails(self) -> None:
+        out = io.StringIO()
+        err = io.StringIO()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "x"}, clear=False), patch(
+                "stock_sentiment.cli.load_dotenv"
+            ), patch(
+                "stock_sentiment.cli.fetch_google_news_rss",
+                return_value=[_fake_article()],
+            ), patch(
+                "pathlib.Path.read_text",
+                side_effect=OSError("cache read failed"),
+            ), patch(
+                "stock_sentiment.sentiment.analyze_articles_with_openai",
+                return_value=[
+                    ArticleSentiment(
+                        article_id="a1",
+                        label="neutral",
+                        score=0.0,
+                        confidence=0.5,
+                    )
+                ],
+            ):
+                with redirect_stdout(out), redirect_stderr(err):
+                    code = cli.main(
+                        [
+                            "analyze",
+                            "TSLA",
+                            "--format",
+                            "json",
+                            "--cache-dir",
+                            str(Path(tmp)),
+                        ]
+                    )
+
+        self.assertEqual(code, 0)
+        self.assertIn("Cache unavailable", err.getvalue())
+        self.assertIn("OpenAI calls may repeat", err.getvalue())

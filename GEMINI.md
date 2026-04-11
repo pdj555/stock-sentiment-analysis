@@ -12,7 +12,7 @@ This is a stdlib-only Python utility that analyzes the sentiment of recent news 
 ## Setup & Installation
 
 1.  **Environment Configuration:**
-    Create a `.env` file in the project root (optional):
+    Create a `./.env` file in your current working directory (optional). In this repo that usually means the repository root:
     ```ini
     OPENAI_API_KEY=your_api_key_here
     # Optional (only needed for --source newsapi)

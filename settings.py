@@ -7,9 +7,8 @@ from stock_sentiment import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 from stock_sentiment.env import load_dotenv
 
 
-# `settings.py` lives at the repository root, so this is the same `./.env`
-# file the CLI loads by default.
-DEFAULT_DOTENV_PATH = Path(__file__).resolve().parent / ".env"
+# Match the CLI: default to `./.env` in the current working directory.
+DEFAULT_DOTENV_PATH = Path(".env")
 
 _DEFAULTS: dict[str, str] = {
     "NEWSAPI_KEY": "",
