@@ -3,6 +3,8 @@ from __future__ import annotations
 import io
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -49,6 +51,20 @@ def _fake_summary(*, include_reason: bool) -> SentimentSummary:
 
 
 class TestCli(unittest.TestCase):
+    def test_module_entrypoint_help_for_analyze_command(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [sys.executable, "-m", "stock_sentiment", "analyze", "TSLA", "--help"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertIn("Analyze recent news sentiment for a stock ticker.", result.stdout)
+        self.assertIn("ticker", result.stdout)
+
     def test_cli_json_omits_reasons_by_default(self) -> None:
         out = io.StringIO()
         err = io.StringIO()
