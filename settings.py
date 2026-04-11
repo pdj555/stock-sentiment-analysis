@@ -3,16 +3,19 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from stock_sentiment import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 from stock_sentiment.env import load_dotenv
 
 
-DEFAULT_DOTENV_PATH = Path(__file__).with_name(".env")
+# `settings.py` lives at the repository root, so this is the same `./.env`
+# file the CLI loads by default.
+DEFAULT_DOTENV_PATH = Path(__file__).resolve().parent / ".env"
 
 _DEFAULTS: dict[str, str] = {
     "NEWSAPI_KEY": "",
     "OPENAI_API_KEY": "",
-    "OPENAI_MODEL": "gpt-4o-mini",
-    "OPENAI_BASE_URL": "https://api.openai.com/v1",
+    "OPENAI_MODEL": DEFAULT_OPENAI_MODEL,
+    "OPENAI_BASE_URL": DEFAULT_OPENAI_BASE_URL,
 }
 
 __all__ = [

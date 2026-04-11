@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from stock_sentiment import cli
-from stock_sentiment.errors import RemoteApiError
+from stock_sentiment.errors import ConfigurationError, RemoteApiError
 from stock_sentiment.types import ArticleSentiment, NewsArticle, SentimentSummary
 
 
@@ -98,7 +98,7 @@ class TestCli(unittest.TestCase):
         self.assertEqual(code, 0)
         payload = json.loads(out.getvalue())
         self.assertEqual(payload["source"], "google-rss")
-        self.assertIn("falling back", err.getvalue().lower())
+        self.assertIn("trying google news rss instead", err.getvalue().lower())
 
     def test_cli_allows_cache_only_run_without_openai_key(self) -> None:
         out = io.StringIO()
@@ -125,3 +125,51 @@ class TestCli(unittest.TestCase):
         self.assertEqual(code, 0)
         payload = json.loads(out.getvalue())
         self.assertEqual(payload["ticker"], "TSLA")
+
+    def test_cli_env_file_sets_parser_backed_defaults(self) -> None:
+        out = io.StringIO()
+        err = io.StringIO()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / "custom.env"
+            env_path.write_text(
+                "OPENAI_API_KEY=x\nOPENAI_MODEL=from-env-file\n",
+                encoding="utf-8",
+            )
+
+            with patch.dict(os.environ, {}, clear=True), patch(
+                "stock_sentiment.cli.fetch_google_news_rss", return_value=[_fake_article()]
+            ), patch(
+                "stock_sentiment.cli.analyze_with_cache",
+                return_value=_fake_summary(include_reason=False),
+            ) as mock_analyze:
+                with redirect_stdout(out), redirect_stderr(err):
+                    code = cli.main(
+                        [
+                            "analyze",
+                            "TSLA",
+                            "--env-file",
+                            str(env_path),
+                            "--no-cache",
+                        ]
+                    )
+
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_analyze.call_args.kwargs["openai"].model, "from-env-file")
+
+    def test_cli_rejects_missing_explicit_env_file(self) -> None:
+        with self.assertRaisesRegex(ConfigurationError, r"Env file not found:"):
+            cli.main(["analyze", "TSLA", "--env-file", "does-not-exist.env"])
+
+    def test_cli_google_rss_error_includes_next_step(self) -> None:
+        with patch.dict(os.environ, {}, clear=True), patch(
+            "stock_sentiment.cli.fetch_google_news_rss",
+            side_effect=RemoteApiError("certificate verify failed"),
+        ):
+            with self.assertRaises(RemoteApiError) as ctx:
+                cli.main(["analyze", "TSLA"])
+
+        message = str(ctx.exception)
+        self.assertIn("Google News RSS request failed.", message)
+        self.assertIn("Set NEWSAPI_KEY to let auto prefer NewsAPI.", message)
+        self.assertIn("certificate verify failed", message)

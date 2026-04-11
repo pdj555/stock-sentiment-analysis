@@ -121,6 +121,69 @@ def _extract_error_detail(body: bytes) -> str:
     return _truncate_for_error(text)
 
 
+def _append_next_step(message: str, hint: str | None) -> str:
+    if not hint:
+        return message
+    if message.endswith((".", "!", "?")):
+        return f"{message} {hint}"
+    return f"{message}. {hint}"
+
+
+def _next_step_for_http_failure(
+    *,
+    url: str,
+    status: int,
+    message: str,
+    last_error: Exception | None,
+) -> str | None:
+    combined = " ".join(part for part in [message, str(last_error or "")] if part).lower()
+    host = urlsplit(url).netloc.lower()
+    if "certificate verify failed" in combined:
+        return "Check your local TLS certificates or trust store."
+    if status == 0:
+        return "Check your network connection and try again."
+    if status == 401:
+        if "openai" in host or "newsapi" in host:
+            return "Check your API key and try again."
+        return "Check the request credentials and try again."
+    if status == 403:
+        if "openai" in host or "newsapi" in host:
+            return "Check that your API key has access to this service."
+        return "Check that this request is allowed and try again."
+    if status == 429:
+        return "Wait a moment and try again."
+    if status >= 500:
+        return "The provider is having trouble. Try again shortly."
+    return None
+
+
+def _format_request_failure(
+    *,
+    method: str,
+    url: str,
+    status: int,
+    message: str = "",
+    last_error: Exception | None = None,
+    retried: bool = False,
+) -> str:
+    safe_url = _redact_url(url)
+    if retried:
+        base = f"{method.upper()} {safe_url} failed after retries"
+    else:
+        base = f"{method.upper()} {safe_url} failed ({status})"
+    if message:
+        base = f"{base}: {message}"
+    return _append_next_step(
+        base,
+        _next_step_for_http_failure(
+            url=url,
+            status=status,
+            message=message,
+            last_error=last_error,
+        ),
+    )
+
+
 def _read_http_response(response: Any) -> HttpResponse:
     status = int(getattr(response, "status", 0) or 0)
     headers_obj = getattr(response, "headers", None)
@@ -252,12 +315,15 @@ def http_request_json(
             message = _extract_error_detail(http_response.body)
             if not message and last_error is not None:
                 message = str(last_error)
-            safe_url = _redact_url(url)
-            if message:
-                raise RemoteApiError(
-                    f"{method.upper()} {safe_url} failed ({http_response.status}): {message}"
+            raise RemoteApiError(
+                _format_request_failure(
+                    method=method,
+                    url=url,
+                    status=http_response.status,
+                    message=message,
+                    last_error=last_error,
                 )
-            raise RemoteApiError(f"{method.upper()} {safe_url} failed ({http_response.status})")
+            )
 
         try:
             parsed = json.loads(http_response.body.decode("utf-8", errors="replace"))
@@ -271,8 +337,16 @@ def http_request_json(
             )
         return parsed
 
-    safe_url = _redact_url(url)
-    raise RemoteApiError(f"{method.upper()} {safe_url} failed after retries: {last_error}")
+    raise RemoteApiError(
+        _format_request_failure(
+            method=method,
+            url=url,
+            status=0,
+            message=str(last_error or ""),
+            last_error=last_error,
+            retried=True,
+        )
+    )
 
 
 def http_request_bytes(
@@ -318,14 +392,25 @@ def http_request_bytes(
             message = _extract_error_detail(http_response.body)
             if not message and last_error is not None:
                 message = str(last_error)
-            safe_url = _redact_url(url)
-            if message:
-                raise RemoteApiError(
-                    f"{method.upper()} {safe_url} failed ({http_response.status}): {message}"
+            raise RemoteApiError(
+                _format_request_failure(
+                    method=method,
+                    url=url,
+                    status=http_response.status,
+                    message=message,
+                    last_error=last_error,
                 )
-            raise RemoteApiError(f"{method.upper()} {safe_url} failed ({http_response.status})")
+            )
 
         return http_response.body
 
-    safe_url = _redact_url(url)
-    raise RemoteApiError(f"{method.upper()} {safe_url} failed after retries: {last_error}")
+    raise RemoteApiError(
+        _format_request_failure(
+            method=method,
+            url=url,
+            status=0,
+            message=str(last_error or ""),
+            last_error=last_error,
+            retried=True,
+        )
+    )

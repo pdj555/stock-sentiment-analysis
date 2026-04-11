@@ -8,7 +8,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from stock_sentiment import __version__
+from stock_sentiment import (
+    DEFAULT_OPENAI_BASE_URL,
+    DEFAULT_OPENAI_MODEL,
+    __version__,
+)
 from stock_sentiment.cache import JsonDiskCache
 from stock_sentiment.env import load_dotenv
 from stock_sentiment.errors import (
@@ -46,10 +50,56 @@ def _format_text(summary: SentimentSummary, *, source: str, lookback_days: int) 
     )
 
 
+def _argv_list(argv: list[str] | None) -> list[str]:
+    return list(sys.argv[1:] if argv is None else argv)
+
+
+def _resolve_env_file(argv: list[str]) -> tuple[Path, bool]:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--env-file", "--dotenv", dest="env_file", type=Path)
+    parsed, _ = parser.parse_known_args(argv)
+    env_file = parsed.env_file or Path(".env")
+    return env_file, parsed.env_file is not None
+
+
+def _fetch_google_news_rss_with_guidance(
+    *,
+    query: str,
+    from_datetime: datetime,
+    source_requested: str,
+    newsapi_key_present: bool,
+):
+    try:
+        return fetch_google_news_rss(query=query, from_datetime=from_datetime)
+    except RemoteApiError as e:
+        lower = str(e).lower()
+        parts: list[str] = []
+        if any(
+            token in lower
+            for token in [
+                "certificate verify failed",
+                "timed out",
+                "ssl",
+                "failed (0)",
+                "failed after retries",
+                "network is unreachable",
+                "connection reset",
+                "connection refused",
+            ]
+        ):
+            parts.append("Check your network connection or local TLS certificates.")
+        if source_requested == "auto" and not newsapi_key_present:
+            parts.append("Set NEWSAPI_KEY to let auto prefer NewsAPI.")
+        guidance = f" {' '.join(parts)}" if parts else ""
+        raise RemoteApiError(
+            f"Google News RSS request failed.{guidance} Original error: {e}"
+        ) from e
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="stock-sentiment",
-        description="Fetch recent news and compute a stock sentiment score using OpenAI.",
+        description="Score recent stock news sentiment with OpenAI.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
@@ -63,93 +113,120 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    analyze = sub.add_parser("analyze", help="Analyze sentiment for a stock ticker")
+    analyze = sub.add_parser(
+        "analyze",
+        help="Score recent news sentiment for a ticker",
+        description="Analyze recent news sentiment for a stock ticker.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Quick start:\n"
+            "  export OPENAI_API_KEY=...\n"
+            "  stock-sentiment analyze TSLA\n\n"
+            "Notes:\n"
+            "  --source auto prefers NewsAPI when NEWSAPI_KEY is set, otherwise Google News RSS.\n"
+            "  --env-file PATH reads env vars from PATH instead of ./.env.\n"
+        ),
+    )
     analyze.add_argument("ticker", help="Stock ticker symbol (e.g., TSLA)")
-    analyze.add_argument("--query", help="Search query (defaults to ticker)")
     analyze.add_argument(
-        "--days", type=int, default=3, help="Lookback window in days (default: 3)"
+        "--query",
+        help="Override the news search text (advanced; defaults to ticker)",
     )
     analyze.add_argument(
+        "--days", type=int, default=3, help="Look back this many days (default: 3)"
+    )
+    tuning = analyze.add_argument_group("Scoring and sourcing")
+    tuning.add_argument(
         "--max-articles",
         type=int,
         default=25,
-        help="Max articles to analyze (default: 25)",
+        help="Analyze at most this many unique articles (default: 25)",
     )
-    analyze.add_argument(
+    tuning.add_argument(
         "--half-life-hours",
         type=float,
         default=24.0,
-        help="Recency half-life for weighting (default: 24)",
+        help="Downweight older articles after this many hours (default: 24)",
     )
-    analyze.add_argument(
-        "--format", choices=["text", "json"], default="text", help="Output format"
+    output = analyze.add_argument_group("Output")
+    output.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Print a one-line summary or JSON",
     )
-    analyze.add_argument(
+    output.add_argument(
         "--include-reasons",
         action="store_true",
-        help="Include short per-article reasons (JSON and --verbose)",
+        help="Include a short reason for each article in JSON output and verbose text output",
     )
-    analyze.add_argument(
+    output.add_argument(
         "--include-articles",
         action="store_true",
-        help="Include article metadata in JSON output",
+        help="Embed article metadata in JSON output",
     )
-    analyze.add_argument(
-        "--verbose", action="store_true", help="Print per-article details (text output)"
+    output.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show per-article details after the summary",
     )
-    analyze.add_argument(
+    tuning.add_argument(
         "--source",
         choices=["auto", "newsapi", "google-rss"],
         default="auto",
-        help="News source (default: auto)",
+        help="Choose the news source. 'auto' prefers NewsAPI, then falls back to Google News RSS.",
     )
-    analyze.add_argument(
+    cache = analyze.add_argument_group("Caching")
+    cache.add_argument(
         "--no-cache",
         action="store_true",
-        help="Disable local caching of OpenAI results",
+        help="Skip the local OpenAI cache for this run",
     )
-    analyze.add_argument(
+    cache.add_argument(
         "--cache-ttl-hours",
         type=float,
         default=24.0,
-        help="Cache TTL in hours (default: 24)",
+        help="Reuse cached article classifications for this many hours (default: 24)",
     )
-    analyze.add_argument(
+    cache.add_argument(
         "--cache-dir",
         type=Path,
         default=_default_cache_dir(),
-        help="Cache directory path",
+        help="Store cached OpenAI classifications here",
     )
-    analyze.add_argument(
+    advanced = analyze.add_argument_group("Advanced config")
+    advanced.add_argument(
         "--model",
-        default=os.environ.get("OPENAI_MODEL", "gpt-5-nano-2025-08-07"),
-        help="OpenAI model name",
+        default=os.environ.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL),
+        help=f"OpenAI model to use (default: {DEFAULT_OPENAI_MODEL} or OPENAI_MODEL)",
     )
-    analyze.add_argument(
+    advanced.add_argument(
         "--openai-base-url",
-        default=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        default=os.environ.get("OPENAI_BASE_URL", DEFAULT_OPENAI_BASE_URL),
+        help=f"OpenAI-compatible API base URL (default: {DEFAULT_OPENAI_BASE_URL} or OPENAI_BASE_URL)",
     )
-    analyze.add_argument(
+    advanced.add_argument(
+        "--env-file",
         "--dotenv",
+        dest="env_file",
         type=Path,
         default=Path(".env"),
-        help="Optional .env path (default: .env)",
+        help="Read env vars from PATH instead of ./.env",
     )
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Load default .env before parsing arguments so defaults can read from it
-    load_dotenv(Path(".env"))
+    raw_argv = _argv_list(argv)
+    env_file, env_file_explicit = _resolve_env_file(raw_argv)
+    if env_file_explicit and (not env_file.exists() or not env_file.is_file()):
+        raise ConfigurationError(f"Env file not found: {env_file}")
 
-    args = build_parser().parse_args(argv)
+    load_dotenv(env_file)
+    args = build_parser().parse_args(raw_argv)
 
     if args.command == "analyze":
-        # Load user-specified .env if different from default (won't overwrite existing vars)
-        if args.dotenv != Path(".env"):
-            load_dotenv(args.dotenv)
-
         openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
         newsapi_key = os.environ.get("NEWSAPI_KEY", "").strip()
 
@@ -212,13 +289,23 @@ def main(argv: list[str] | None = None) -> int:
                 if source_requested != "auto":
                     raise
                 print(
-                    f"NewsAPI failed ({e}); falling back to Google News RSS.",
+                    f"NewsAPI request failed ({e}). Trying Google News RSS instead.",
                     file=sys.stderr,
                 )
                 source_used = "google-rss"
-                articles = fetch_google_news_rss(query=query, from_datetime=from_dt)
+                articles = _fetch_google_news_rss_with_guidance(
+                    query=query,
+                    from_datetime=from_dt,
+                    source_requested=source_requested,
+                    newsapi_key_present=bool(newsapi_key),
+                )
         else:
-            articles = fetch_google_news_rss(query=query, from_datetime=from_dt)
+            articles = _fetch_google_news_rss_with_guidance(
+                query=query,
+                from_datetime=from_dt,
+                source_requested=source_requested,
+                newsapi_key_present=bool(newsapi_key),
+            )
 
         unique = []
         seen = set()
