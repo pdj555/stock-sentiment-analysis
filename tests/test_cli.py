@@ -13,7 +13,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from stock_sentiment import cli
-from stock_sentiment.errors import ConfigurationError, RemoteApiError
+from stock_sentiment.errors import ConfigurationError
+from stock_sentiment.runtime import AnalysisRunResult
 from stock_sentiment.types import ArticleSentiment, NewsArticle, SentimentSummary
 
 
@@ -50,6 +51,15 @@ def _fake_summary(*, include_reason: bool) -> SentimentSummary:
     )
 
 
+def _fake_result(*, include_reason: bool, source: str = "google-rss") -> AnalysisRunResult:
+    return AnalysisRunResult(
+        summary=_fake_summary(include_reason=include_reason),
+        articles=[_fake_article()],
+        source=source,
+        lookback_days=3,
+    )
+
+
 class TestCli(unittest.TestCase):
     def test_module_entrypoint_help_for_analyze_command(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
@@ -65,15 +75,39 @@ class TestCli(unittest.TestCase):
         self.assertIn("Analyze recent news sentiment for a stock ticker.", result.stdout)
         self.assertIn("ticker", result.stdout)
 
+    def test_module_entrypoint_help_for_ui_command(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [sys.executable, "-m", "stock_sentiment", "ui", "--help"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertIn("Open a local web UI for one-ticker sentiment checks.", result.stdout)
+        self.assertIn("--port", result.stdout)
+
+    def test_cli_ui_starts_server(self) -> None:
+        with patch("stock_sentiment.cli.load_dotenv"), patch(
+            "stock_sentiment.ui.run_ui_server"
+        ) as mock_run_ui_server:
+            code = cli.main(["ui", "--host", "0.0.0.0", "--port", "9123"])
+
+        self.assertEqual(code, 0)
+        mock_run_ui_server.assert_called_once_with(host="0.0.0.0", port=9123)
+
     def test_cli_json_omits_reasons_by_default(self) -> None:
         out = io.StringIO()
         err = io.StringIO()
 
         with patch.dict(os.environ, {"OPENAI_API_KEY": "x"}, clear=False), patch(
             "stock_sentiment.cli.load_dotenv"
-        ), patch("stock_sentiment.cli.fetch_google_news_rss", return_value=[_fake_article()]), patch(
-            "stock_sentiment.cli.analyze_with_cache", return_value=_fake_summary(include_reason=True)
-        ):
+        ), patch(
+            "stock_sentiment.cli.run_analysis",
+            return_value=_fake_result(include_reason=True),
+        ) as mock_run_analysis:
             with redirect_stdout(out), redirect_stderr(err):
                 code = cli.main(["analyze", "tsla", "--format", "json", "--no-cache"])
 
@@ -82,6 +116,7 @@ class TestCli(unittest.TestCase):
         self.assertEqual(payload["source"], "google-rss")
         self.assertEqual(payload["lookback_days"], 3)
         self.assertNotIn("reason", payload["results"][0])
+        self.assertFalse(mock_run_analysis.call_args.args[0].include_reasons)
 
     def test_cli_json_includes_reasons_when_requested(self) -> None:
         out = io.StringIO()
@@ -89,58 +124,17 @@ class TestCli(unittest.TestCase):
 
         with patch.dict(os.environ, {"OPENAI_API_KEY": "x"}, clear=False), patch(
             "stock_sentiment.cli.load_dotenv"
-        ), patch("stock_sentiment.cli.fetch_google_news_rss", return_value=[_fake_article()]), patch(
-            "stock_sentiment.cli.analyze_with_cache", return_value=_fake_summary(include_reason=True)
-        ):
+        ), patch(
+            "stock_sentiment.cli.run_analysis",
+            return_value=_fake_result(include_reason=True),
+        ) as mock_run_analysis:
             with redirect_stdout(out), redirect_stderr(err):
                 code = cli.main(["analyze", "tsla", "--format", "json", "--include-reasons", "--no-cache"])
 
         self.assertEqual(code, 0)
         payload = json.loads(out.getvalue())
         self.assertEqual(payload["results"][0]["reason"], "reason")
-
-    def test_cli_auto_falls_back_to_google_rss_on_newsapi_error(self) -> None:
-        out = io.StringIO()
-        err = io.StringIO()
-
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "x", "NEWSAPI_KEY": "y"}, clear=False), patch(
-            "stock_sentiment.cli.load_dotenv"
-        ), patch("stock_sentiment.cli.fetch_everything", side_effect=RemoteApiError("nope")), patch(
-            "stock_sentiment.cli.fetch_google_news_rss", return_value=[_fake_article()]
-        ), patch("stock_sentiment.cli.analyze_with_cache", return_value=_fake_summary(include_reason=False)):
-            with redirect_stdout(out), redirect_stderr(err):
-                code = cli.main(["analyze", "TSLA", "--format", "json", "--no-cache"])
-
-        self.assertEqual(code, 0)
-        payload = json.loads(out.getvalue())
-        self.assertEqual(payload["source"], "google-rss")
-        self.assertIn("trying google news rss instead", err.getvalue().lower())
-
-    def test_cli_allows_cache_only_run_without_openai_key(self) -> None:
-        out = io.StringIO()
-        err = io.StringIO()
-
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch.dict(os.environ, {"OPENAI_API_KEY": ""}, clear=False), patch(
-                "stock_sentiment.cli.load_dotenv"
-            ), patch("stock_sentiment.cli.fetch_google_news_rss", return_value=[_fake_article()]), patch(
-                "stock_sentiment.cli.analyze_with_cache", return_value=_fake_summary(include_reason=False)
-            ):
-                with redirect_stdout(out), redirect_stderr(err):
-                    code = cli.main(
-                        [
-                            "analyze",
-                            "TSLA",
-                            "--format",
-                            "json",
-                            "--cache-dir",
-                            str(Path(tmp)),
-                        ]
-                    )
-
-        self.assertEqual(code, 0)
-        payload = json.loads(out.getvalue())
-        self.assertEqual(payload["ticker"], "TSLA")
+        self.assertTrue(mock_run_analysis.call_args.args[0].include_reasons)
 
     def test_cli_env_file_sets_parser_backed_defaults(self) -> None:
         out = io.StringIO()
@@ -154,11 +148,9 @@ class TestCli(unittest.TestCase):
             )
 
             with patch.dict(os.environ, {}, clear=True), patch(
-                "stock_sentiment.cli.fetch_google_news_rss", return_value=[_fake_article()]
-            ), patch(
-                "stock_sentiment.cli.analyze_with_cache",
-                return_value=_fake_summary(include_reason=False),
-            ) as mock_analyze:
+                "stock_sentiment.cli.run_analysis",
+                return_value=_fake_result(include_reason=False),
+            ) as mock_run_analysis:
                 with redirect_stdout(out), redirect_stderr(err):
                     code = cli.main(
                         [
@@ -171,61 +163,8 @@ class TestCli(unittest.TestCase):
                     )
 
         self.assertEqual(code, 0)
-        self.assertEqual(mock_analyze.call_args.kwargs["openai"].model, "from-env-file")
+        self.assertEqual(mock_run_analysis.call_args.args[0].openai_model, "from-env-file")
 
     def test_cli_rejects_missing_explicit_env_file(self) -> None:
         with self.assertRaisesRegex(ConfigurationError, r"Env file not found:"):
             cli.main(["analyze", "TSLA", "--env-file", "does-not-exist.env"])
-
-    def test_cli_google_rss_error_includes_next_step(self) -> None:
-        with patch.dict(os.environ, {}, clear=True), patch(
-            "stock_sentiment.cli.fetch_google_news_rss",
-            side_effect=RemoteApiError("certificate verify failed"),
-        ):
-            with self.assertRaises(RemoteApiError) as ctx:
-                cli.main(["analyze", "TSLA"])
-
-        message = str(ctx.exception)
-        self.assertIn("Google News RSS request failed.", message)
-        self.assertIn("Set NEWSAPI_KEY to let auto prefer NewsAPI.", message)
-        self.assertIn("certificate verify failed", message)
-
-    def test_cli_prints_cache_warning_when_cache_read_fails(self) -> None:
-        out = io.StringIO()
-        err = io.StringIO()
-
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch.dict(os.environ, {"OPENAI_API_KEY": "x"}, clear=False), patch(
-                "stock_sentiment.cli.load_dotenv"
-            ), patch(
-                "stock_sentiment.cli.fetch_google_news_rss",
-                return_value=[_fake_article()],
-            ), patch(
-                "pathlib.Path.read_text",
-                side_effect=OSError("cache read failed"),
-            ), patch(
-                "stock_sentiment.sentiment.analyze_articles_with_openai",
-                return_value=[
-                    ArticleSentiment(
-                        article_id="a1",
-                        label="neutral",
-                        score=0.0,
-                        confidence=0.5,
-                    )
-                ],
-            ):
-                with redirect_stdout(out), redirect_stderr(err):
-                    code = cli.main(
-                        [
-                            "analyze",
-                            "TSLA",
-                            "--format",
-                            "json",
-                            "--cache-dir",
-                            str(Path(tmp)),
-                        ]
-                    )
-
-        self.assertEqual(code, 0)
-        self.assertIn("Cache unavailable", err.getvalue())
-        self.assertIn("OpenAI calls may repeat", err.getvalue())

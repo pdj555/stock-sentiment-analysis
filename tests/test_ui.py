@@ -1,0 +1,156 @@
+from __future__ import annotations
+
+import io
+import json
+import unittest
+from datetime import datetime, timezone
+
+from stock_sentiment.errors import ConfigurationError
+from stock_sentiment.runtime import AnalysisRunResult
+from stock_sentiment.types import ArticleSentiment, NewsArticle, SentimentSummary
+from stock_sentiment.ui import (
+    UI_HTML,
+    _build_response_payload,
+    _display_source_name,
+    create_app,
+)
+
+
+def _fake_result() -> AnalysisRunResult:
+    article = NewsArticle(
+        article_id="a1",
+        title="Example article",
+        description="A short description",
+        url="https://example.com/article",
+        source="Example",
+        published_at=datetime(2025, 1, 1, 15, 30, tzinfo=timezone.utc),
+    )
+    summary = SentimentSummary(
+        ticker="TSLA",
+        query="TSLA",
+        as_of=datetime(2025, 1, 1, 16, 0, tzinfo=timezone.utc),
+        score=0.42,
+        label="positive",
+        confidence=0.81,
+        signal="buy",
+        articles_analyzed=1,
+        results=[
+            ArticleSentiment(
+                article_id="a1",
+                label="positive",
+                score=0.42,
+                confidence=0.81,
+                reason="Demand outlook improved.",
+            )
+        ],
+    )
+    return AnalysisRunResult(
+        summary=summary,
+        articles=[article],
+        source="google-rss",
+        lookback_days=3,
+    )
+
+
+def _run_app(
+    app,
+    *,
+    method: str,
+    path: str,
+    payload: dict[str, object] | None = None,
+) -> tuple[str, dict[str, str], dict[str, object]]:
+    raw_body = b""
+    if payload is not None:
+        raw_body = json.dumps(payload).encode("utf-8")
+
+    status_holder: dict[str, object] = {}
+
+    def start_response(status: str, headers: list[tuple[str, str]]) -> None:
+        status_holder["status"] = status
+        status_holder["headers"] = headers
+
+    body = b"".join(
+        app(
+            {
+                "REQUEST_METHOD": method,
+                "PATH_INFO": path,
+                "CONTENT_LENGTH": str(len(raw_body)),
+                "wsgi.input": io.BytesIO(raw_body),
+            },
+            start_response,
+        )
+    )
+
+    content_type = dict(status_holder["headers"]).get("Content-Type", "")
+    parsed_body: dict[str, object]
+    if content_type.startswith("application/json"):
+        parsed_body = json.loads(body.decode("utf-8"))
+    else:
+        parsed_body = {"raw": body.decode("utf-8")}
+
+    return (
+        str(status_holder["status"]),
+        dict(status_holder["headers"]),
+        parsed_body,
+    )
+
+
+class TestUi(unittest.TestCase):
+    def test_ui_html_contains_primary_controls(self) -> None:
+        self.assertIn("Recent news in one read.", UI_HTML)
+        self.assertIn('id="ticker"', UI_HTML)
+        self.assertIn("/api/analyze", UI_HTML)
+
+    def test_build_response_payload_merges_article_sentiment(self) -> None:
+        payload = _build_response_payload(_fake_result())
+
+        self.assertEqual(payload["summary"]["ticker"], "TSLA")
+        self.assertEqual(payload["summary"]["signal"], "buy")
+        self.assertEqual(payload["summary"]["source"], "Google News RSS")
+        self.assertEqual(payload["articles"][0]["reason"], "Demand outlook improved.")
+        self.assertEqual(payload["articles"][0]["label"], "positive")
+
+    def test_display_source_name_hides_internal_slugs(self) -> None:
+        self.assertEqual(_display_source_name("newsapi"), "NewsAPI")
+        self.assertEqual(_display_source_name("google-rss"), "Google News RSS")
+
+    def test_wsgi_app_serves_html_shell(self) -> None:
+        app = create_app(lambda ticker: _fake_result())
+
+        status, headers, payload = _run_app(app, method="GET", path="/")
+
+        self.assertEqual(status, "200 OK")
+        self.assertTrue(headers["Content-Type"].startswith("text/html"))
+        self.assertIn("Stock Sentiment", payload["raw"])
+
+    def test_wsgi_app_returns_analysis_payload(self) -> None:
+        app = create_app(lambda ticker: _fake_result())
+
+        status, headers, payload = _run_app(
+            app,
+            method="POST",
+            path="/api/analyze",
+            payload={"ticker": "TSLA"},
+        )
+
+        self.assertEqual(status, "200 OK")
+        self.assertTrue(headers["Content-Type"].startswith("application/json"))
+        self.assertEqual(payload["summary"]["ticker"], "TSLA")
+        self.assertEqual(len(payload["articles"]), 1)
+
+    def test_wsgi_app_surfaces_validation_errors(self) -> None:
+        app = create_app(
+            lambda ticker: (_ for _ in ()).throw(
+                ConfigurationError("Ticker cannot be empty.")
+            )
+        )
+
+        status, _, payload = _run_app(
+            app,
+            method="POST",
+            path="/api/analyze",
+            payload={"ticker": ""},
+        )
+
+        self.assertEqual(status, "400 Bad Request")
+        self.assertEqual(payload["error"]["message"], "Ticker cannot be empty.")

@@ -4,39 +4,22 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from stock_sentiment import (
     DEFAULT_OPENAI_BASE_URL,
     DEFAULT_OPENAI_MODEL,
     __version__,
 )
-from stock_sentiment.cache import JsonDiskCache
 from stock_sentiment.env import load_dotenv
 from stock_sentiment.errors import (
     ConfigurationError,
     RemoteApiError,
     StockSentimentError,
 )
-from stock_sentiment.google_rss import fetch_google_news_rss
-from stock_sentiment.newsapi import fetch_everything
-from stock_sentiment.sentiment import OpenAISentimentConfig, analyze_with_cache
-from stock_sentiment.types import NewsArticle, SentimentSummary
-
-
-def _default_cache_dir() -> Path:
-    xdg = os.environ.get("XDG_CACHE_HOME")
-    if xdg:
-        return Path(xdg) / "stock_sentiment"
-    if sys.platform == "darwin":
-        return Path.home() / "Library" / "Caches" / "stock_sentiment"
-    if os.name == "nt":
-        base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
-        if base:
-            return Path(base) / "stock_sentiment"
-    return Path.home() / ".cache" / "stock_sentiment"
+from stock_sentiment.runtime import AnalysisRequest, default_cache_dir, run_analysis
+from stock_sentiment.types import SentimentSummary
 
 
 def _format_text(summary: SentimentSummary, *, source: str, lookback_days: int) -> str:
@@ -62,50 +45,17 @@ def _resolve_env_file(argv: list[str]) -> tuple[Path, bool]:
     return env_file, parsed.env_file is not None
 
 
-def _fetch_google_news_rss_with_guidance(
-    *,
-    query: str,
-    from_datetime: datetime,
-    source_requested: str,
-    newsapi_key_present: bool,
-) -> list[NewsArticle]:
-    try:
-        return fetch_google_news_rss(query=query, from_datetime=from_datetime)
-    except RemoteApiError as e:
-        lower = str(e).lower()
-        parts: list[str] = []
-        if any(
-            token in lower
-            for token in [
-                "certificate verify failed",
-                "timed out",
-                "ssl",
-                "failed (0)",
-                "failed after retries",
-                "network is unreachable",
-                "connection reset",
-                "connection refused",
-            ]
-        ):
-            parts.append("Check your network connection or local TLS certificates.")
-        if source_requested == "auto" and not newsapi_key_present:
-            parts.append("Set NEWSAPI_KEY to let auto prefer NewsAPI.")
-        guidance = f" {' '.join(parts)}" if parts else ""
-        raise RemoteApiError(
-            f"Google News RSS request failed.{guidance} Original error: {e}"
-        ) from e
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="stock-sentiment",
-        description="Score recent stock news sentiment with OpenAI.",
+        description="Score recent stock news sentiment from the CLI or a local web UI.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
             "  stock-sentiment analyze TSLA\n"
             "  stock-sentiment analyze TSLA --format json --include-reasons\n"
             "  stock-sentiment analyze TSLA --source google-rss --days 7\n"
+            "  stock-sentiment ui\n"
         ),
     )
     parser.add_argument(
@@ -191,7 +141,7 @@ def build_parser() -> argparse.ArgumentParser:
     cache.add_argument(
         "--cache-dir",
         type=Path,
-        default=_default_cache_dir(),
+        default=default_cache_dir(),
         help="Store cached OpenAI classifications here",
     )
     advanced = analyze.add_argument_group("Advanced config")
@@ -214,6 +164,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Read env vars from PATH instead of ./.env",
     )
 
+    ui = sub.add_parser(
+        "ui",
+        help="Start the local web UI",
+        description="Open a local web UI for one-ticker sentiment checks.",
+    )
+    ui.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host for the local UI (default: 127.0.0.1)",
+    )
+    ui.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="Port for the local UI (default: 8765)",
+    )
+    ui.add_argument(
+        "--env-file",
+        "--dotenv",
+        dest="env_file",
+        type=Path,
+        default=Path(".env"),
+        help=argparse.SUPPRESS,
+    )
+
     return parser
 
 
@@ -226,136 +201,43 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv(env_file)
     args = build_parser().parse_args(raw_argv)
 
+    if args.command == "ui":
+        host = str(args.host or "").strip()
+        if not host:
+            raise ConfigurationError("--host cannot be empty.")
+        port = int(args.port)
+        if port < 1 or port > 65535:
+            raise ConfigurationError("--port must be between 1 and 65535.")
+
+        from stock_sentiment.ui import run_ui_server
+
+        run_ui_server(host=host, port=port)
+        return 0
+
     if args.command == "analyze":
-        openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
-        newsapi_key = os.environ.get("NEWSAPI_KEY", "").strip()
-
-        ticker = str(args.ticker or "").strip().upper()
-        if not ticker:
-            raise ConfigurationError("Ticker cannot be empty.")
-        if any(ch.isspace() for ch in ticker):
-            raise ConfigurationError("Ticker cannot contain whitespace.")
-        if len(ticker) > 24:
-            raise ConfigurationError(
-                "Ticker looks too long; expected a symbol like TSLA."
-            )
-
-        query = (args.query or ticker).strip()
-        if not query:
-            raise ConfigurationError("Query cannot be empty.")
-
-        if int(args.days) < 1:
-            raise ConfigurationError("--days must be >= 1.")
-        if int(args.max_articles) < 1:
-            raise ConfigurationError("--max-articles must be >= 1.")
-        if float(args.half_life_hours) <= 0:
-            raise ConfigurationError("--half-life-hours must be > 0.")
-        if not args.no_cache and float(args.cache_ttl_hours) < 0:
-            raise ConfigurationError("--cache-ttl-hours must be >= 0.")
-
-        model = str(args.model or "").strip()
-        if not model:
-            raise ConfigurationError("--model cannot be empty.")
-
-        openai_base_url = str(args.openai_base_url or "").strip()
-        if not openai_base_url:
-            raise ConfigurationError("--openai-base-url cannot be empty.")
-        base_split = urlsplit(openai_base_url)
-        if base_split.scheme not in {"http", "https"} or not base_split.netloc:
-            raise ConfigurationError(
-                "--openai-base-url must be an http(s) URL (e.g., https://api.openai.com/v1)."
-            )
-
-        now = datetime.now(timezone.utc)
-        lookback_days = int(args.days)
-        from_dt = now - timedelta(days=lookback_days)
-
-        source_requested = args.source
-        source_used = source_requested
-        if source_used == "auto":
-            source_used = "newsapi" if newsapi_key else "google-rss"
-        if source_used == "newsapi" and not newsapi_key:
-            raise ConfigurationError(
-                "Missing NEWSAPI_KEY (required when --source=newsapi)."
-            )
-
-        if source_used == "newsapi":
-            try:
-                from_date = from_dt.date().isoformat()
-                articles = fetch_everything(
-                    api_key=newsapi_key, query=query, from_date=from_date, page_size=100
-                )
-            except RemoteApiError as e:
-                if source_requested != "auto":
-                    raise
-                print(
-                    f"NewsAPI request failed ({e}). Trying Google News RSS instead.",
-                    file=sys.stderr,
-                )
-                source_used = "google-rss"
-                articles = _fetch_google_news_rss_with_guidance(
-                    query=query,
-                    from_datetime=from_dt,
-                    source_requested=source_requested,
-                    newsapi_key_present=bool(newsapi_key),
-                )
-        else:
-            articles = _fetch_google_news_rss_with_guidance(
-                query=query,
-                from_datetime=from_dt,
-                source_requested=source_requested,
-                newsapi_key_present=bool(newsapi_key),
-            )
-
-        unique = []
-        seen = set()
-        for a in articles:
-            key = a.url or a.article_id
-            if key in seen:
-                continue
-            seen.add(key)
-            unique.append(a)
-            if len(unique) >= max(1, int(args.max_articles)):
-                break
-
-        cache: JsonDiskCache | None = None
-        ttl_seconds: float | None = None
-        if not args.no_cache:
-            ttl_seconds = float(args.cache_ttl_hours) * 3600.0
-            try:
-                cache = JsonDiskCache(
-                    args.cache_dir,
-                    warn=lambda message: print(message, file=sys.stderr),
-                )
-            except OSError as e:
-                cache = None
-                ttl_seconds = None
-                print(f"Cache disabled: {e}", file=sys.stderr)
-
-        if not openai_key and args.no_cache and unique:
-            raise ConfigurationError(
-                "Missing OPENAI_API_KEY. Set it to analyze articles, or rerun with caching enabled after a successful run."
-            )
-
-        try:
-            summary = analyze_with_cache(
-                ticker=ticker,
-                query=query,
-                articles=unique,
-                cache=cache,
-                cache_ttl_seconds=ttl_seconds,
-                openai=OpenAISentimentConfig(
-                    api_key=openai_key, model=model, base_url=openai_base_url
-                ),
-                include_reasons=bool(args.include_reasons),
+        result = run_analysis(
+            AnalysisRequest(
+                ticker=args.ticker,
+                query=args.query,
+                lookback_days=int(args.days),
+                max_articles=int(args.max_articles),
                 half_life_hours=float(args.half_life_hours),
-            )
-        except ConfigurationError as e:
-            if not openai_key and "OPENAI_API_KEY" in str(e):
-                raise ConfigurationError(
-                    "Missing OPENAI_API_KEY. Some articles were not cached; set OPENAI_API_KEY to analyze them."
-                ) from e
-            raise
+                source=args.source,
+                openai_api_key=os.environ.get("OPENAI_API_KEY", "").strip(),
+                newsapi_key=os.environ.get("NEWSAPI_KEY", "").strip(),
+                openai_model=str(args.model or ""),
+                openai_base_url=str(args.openai_base_url or ""),
+                use_cache=not args.no_cache,
+                cache_ttl_hours=float(args.cache_ttl_hours),
+                cache_dir=args.cache_dir,
+                include_reasons=bool(args.include_reasons),
+            ),
+            warn=lambda message: print(message, file=sys.stderr),
+        )
+        summary = result.summary
+        source_used = result.source
+        unique = result.articles
+        lookback_days = result.lookback_days
 
         if args.format == "json":
             payload = summary.to_dict(include_reasons=bool(args.include_reasons))

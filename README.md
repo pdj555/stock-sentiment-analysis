@@ -13,6 +13,16 @@ python3 -m stock_sentiment analyze TSLA
 
 If you want `--source auto` to prefer NewsAPI before falling back to Google News RSS, also set `NEWSAPI_KEY`.
 
+Open the local UI:
+
+```bash
+python3 -m stock_sentiment ui
+```
+
+Set `OPENAI_API_KEY` first. Add `NEWSAPI_KEY` if you want auto to prefer NewsAPI.
+
+Then visit `http://127.0.0.1:8765`.
+
 ## Configuration
 
 You can keep secrets in the shell or in a local `./.env` file in your current working directory:
