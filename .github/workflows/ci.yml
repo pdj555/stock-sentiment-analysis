@@ -28,6 +28,28 @@ jobs:
           stock-sentiment --version
           stock-sentiment analyze TSLA --help > /dev/null
           stock-sentiment ui --help > /dev/null
+      - name: UI HTTP smoke test
+        run: |
+          python -m stock_sentiment ui --host 127.0.0.1 --port 8765 > /tmp/stock-sentiment-ui.log 2>&1 &
+          ui_pid=$!
+          trap 'kill $ui_pid' EXIT
+          python - <<'PY'
+          import json
+          import time
+          import urllib.request
+
+          url = "http://127.0.0.1:8765/health"
+          for _ in range(40):
+              try:
+                  with urllib.request.urlopen(url, timeout=1) as response:
+                      payload = json.load(response)
+                  if payload == {"ok": True}:
+                      break
+              except Exception:
+                  time.sleep(0.25)
+          else:
+              raise SystemExit(f"UI health endpoint did not become ready: {url}")
+          PY
       - name: Run unit tests
         run: python -m unittest discover -s tests -p "test_*.py"
       - name: Compile check

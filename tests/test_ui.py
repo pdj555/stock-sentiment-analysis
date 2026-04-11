@@ -4,6 +4,9 @@ import io
 import json
 import unittest
 from datetime import datetime, timezone
+from threading import Thread
+from urllib.request import Request, urlopen
+from wsgiref.simple_server import make_server
 
 from stock_sentiment.errors import ConfigurationError
 from stock_sentiment.runtime import AnalysisRunResult
@@ -95,6 +98,13 @@ def _run_app(
     )
 
 
+def _serve_http(app):
+    server = make_server("127.0.0.1", 0, app)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, thread, f"http://127.0.0.1:{server.server_port}"
+
+
 class TestUi(unittest.TestCase):
     def test_ui_html_contains_primary_controls(self) -> None:
         self.assertIn("Recent news in one read.", UI_HTML)
@@ -154,3 +164,27 @@ class TestUi(unittest.TestCase):
 
         self.assertEqual(status, "400 Bad Request")
         self.assertEqual(payload["error"]["message"], "Ticker cannot be empty.")
+
+    def test_http_server_serves_health_and_analysis(self) -> None:
+        app = create_app(lambda ticker: _fake_result())
+        server, thread, base_url = _serve_http(app)
+
+        try:
+            with urlopen(f"{base_url}/health", timeout=2) as response:
+                self.assertEqual(json.load(response), {"ok": True})
+
+            request = Request(
+                f"{base_url}/api/analyze",
+                data=json.dumps({"ticker": "TSLA"}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urlopen(request, timeout=2) as response:
+                payload = json.load(response)
+
+            self.assertEqual(payload["summary"]["ticker"], "TSLA")
+            self.assertEqual(payload["summary"]["source"], "Google News RSS")
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            server.server_close()

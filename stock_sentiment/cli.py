@@ -168,6 +168,15 @@ def build_parser() -> argparse.ArgumentParser:
         "ui",
         help="Start the local web UI",
         description="Open a local web UI for one-ticker sentiment checks.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Quick start:\n"
+            "  export OPENAI_API_KEY=...\n"
+            "  stock-sentiment ui\n\n"
+            "Notes:\n"
+            "  Add NEWSAPI_KEY if you want auto to prefer NewsAPI.\n"
+            "  For container hosts, bind 0.0.0.0 and use the platform port.\n"
+        ),
     )
     ui.add_argument(
         "--host",

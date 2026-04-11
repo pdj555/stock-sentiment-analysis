@@ -46,6 +46,30 @@ Optional console script:
 python3 -m pip install -e .
 ```
 
+## Deploy
+
+### Fly.io
+
+The included `Dockerfile` serves the UI on port `8080` with:
+
+```bash
+python -m stock_sentiment ui --host 0.0.0.0 --port 8080
+```
+
+Typical flow from the repository root:
+
+```bash
+fly launch --no-deploy
+fly secrets set OPENAI_API_KEY=...
+# Optional
+fly secrets set NEWSAPI_KEY=...
+fly deploy
+```
+
+### Vercel and other Python WSGI hosts
+
+`app.py` exports the WSGI app as `app`, which keeps the same UI surface available to hosts that accept a Python WSGI entrypoint.
+
 ## Examples
 
 Text summary:

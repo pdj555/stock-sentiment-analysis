@@ -87,6 +87,7 @@ class TestCli(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("Open a local web UI for one-ticker sentiment checks.", result.stdout)
+        self.assertIn("OPENAI_API_KEY", result.stdout)
         self.assertIn("--port", result.stdout)
 
     def test_cli_ui_starts_server(self) -> None:
