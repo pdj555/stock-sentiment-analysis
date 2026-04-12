@@ -2,42 +2,34 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-
-concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+    types: [opened, synchronize]
 
 jobs:
-  review:
-    if: github.event.pull_request.draft == false
+  claude-review:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
+      pull-requests: read
+      issues: read
       id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - name: Automated Claude review
+      - name: Run Claude Code Review
+        id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: '--model claude-opus-4-6 --max-turns 15'
-          track_progress: "true"
-          use_sticky_comment: "true"
           prompt: |
-            REPO ${{ github.repository }}  PR #${{ github.event.pull_request.number }}
-            TITLE: ${{ github.event.pull_request.title }}
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
 
             You are the revenue gate for this pull request. Nothing matters except whether this change makes the product money or defends the money path. Profit. Income. That is the entire scoreboard.
 
-            Use the GitHub tools available to you to read the diff, the files it touches, and the relevant surrounding code. Then post EXACTLY ONE pull request review comment on this PR summarizing your verdict.
+            Use the repository tools to read the diff and the files it touches, then post EXACTLY ONE pull request review summarizing your verdict.
 
             Review with this lens, in priority order:
 
@@ -58,7 +50,7 @@ jobs:
             4. SPEED TO SHIP
                - Can this merge today? If not, list the shortest possible path to green.
 
-            Output format (single review comment, markdown):
+            Output format (single review, markdown):
 
             ## Verdict
             One of: SHIP IT / SHIP WITH FIXES / DO NOT SHIP. One sentence justifying it in revenue terms.
@@ -76,3 +68,4 @@ jobs:
             One sentence. The highest-leverage follow-up this PR unlocks for generating income.
 
             Be direct. Be urgent. No hedging, no throat-clearing, no emoji. Write like the runway depends on this PR, because it does.
+          claude_args: '--max-turns 15'
