@@ -25,6 +25,7 @@ class TestHttp(unittest.TestCase):
         self.assertNotIn("SECRET", message)
         self.assertIn("REDACTED", message)
         self.assertIn("Invalid API key", message)
+        self.assertIn("Check your API key and try again.", message)
 
     def test_http_request_json_redacts_secrets_on_json_parse_errors(self) -> None:
         def fake_request(*, method: str, url: str, headers: dict[str, str], data: bytes | None, timeout_seconds: float):

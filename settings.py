@@ -3,16 +3,19 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from stock_sentiment import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 from stock_sentiment.env import load_dotenv
+from stock_sentiment.errors import ConfigurationError
 
 
-DEFAULT_DOTENV_PATH = Path(__file__).with_name(".env")
+# Match the CLI: default to `./.env` in the current working directory.
+DEFAULT_DOTENV_PATH = Path(".env")
 
 _DEFAULTS: dict[str, str] = {
     "NEWSAPI_KEY": "",
     "OPENAI_API_KEY": "",
-    "OPENAI_MODEL": "gpt-4o-mini",
-    "OPENAI_BASE_URL": "https://api.openai.com/v1",
+    "OPENAI_MODEL": DEFAULT_OPENAI_MODEL,
+    "OPENAI_BASE_URL": DEFAULT_OPENAI_BASE_URL,
 }
 
 __all__ = [
@@ -54,7 +57,9 @@ def require_env(name: str) -> str:
 
     value = os.environ.get(name, "").strip()
     if not value:
-        raise RuntimeError(f"Missing required environment variable: {name}")
+        raise ConfigurationError(
+            f"Missing {name}. Set it in your shell or ./.env, then try again."
+        )
     return value
 
 

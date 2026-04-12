@@ -12,13 +12,13 @@ This is a stdlib-only Python utility that analyzes the sentiment of recent news 
 ## Setup & Installation
 
 1.  **Environment Configuration:**
-    Create a `.env` file in the project root (optional):
+    Create a `./.env` file in your current working directory (optional). In this repo that usually means the repository root:
     ```ini
     OPENAI_API_KEY=your_api_key_here
-    # Optional (only needed for --source newsapi)
+    # Optional (needed for --source newsapi, and lets --source auto prefer NewsAPI)
     NEWSAPI_KEY=your_newsapi_key_here
     # Optional
-    OPENAI_MODEL=gpt-4o-mini
+    OPENAI_MODEL=gpt-5-nano-2025-08-07
     OPENAI_BASE_URL=https://api.openai.com/v1
     ```
 

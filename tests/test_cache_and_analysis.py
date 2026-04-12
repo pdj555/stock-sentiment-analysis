@@ -6,12 +6,23 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+from stock_sentiment import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 from stock_sentiment.cache import JsonDiskCache
-from stock_sentiment.sentiment import OpenAISentimentConfig, analyze_with_cache
+from stock_sentiment.sentiment import (
+    OpenAIClassificationBatch,
+    OpenAISentimentConfig,
+    analyze_with_cache,
+)
 from stock_sentiment.types import ArticleSentiment, NewsArticle
 
 
 class TestCacheAndAnalysis(unittest.TestCase):
+    def test_openai_sentiment_config_uses_shared_defaults(self) -> None:
+        config = OpenAISentimentConfig(api_key="test")
+
+        self.assertEqual(config.model, DEFAULT_OPENAI_MODEL)
+        self.assertEqual(config.base_url, DEFAULT_OPENAI_BASE_URL)
+
     def test_json_disk_cache_roundtrip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cache = JsonDiskCache(Path(tmp))
@@ -49,7 +60,8 @@ class TestCacheAndAnalysis(unittest.TestCase):
             openai = OpenAISentimentConfig(api_key="test", model="test-model")
 
             with patch(
-                "stock_sentiment.sentiment.analyze_articles_with_openai", return_value=fake_results
+                "stock_sentiment.sentiment.analyze_articles_with_openai",
+                return_value=OpenAIClassificationBatch(results=fake_results),
             ) as mocked:
                 analyze_with_cache(
                     ticker="TSLA",
@@ -103,8 +115,10 @@ class TestCacheAndAnalysis(unittest.TestCase):
             ArticleSentiment(article_id="a2", label="negative", score=-0.6, confidence=0.8, reason="legal risk"),
         ]
 
-        def fake_analyze(*, include_reasons: bool, **_: object) -> list[ArticleSentiment]:
-            return reason_results if include_reasons else no_reason_results
+        def fake_analyze(*, include_reasons: bool, **_: object) -> OpenAIClassificationBatch:
+            return OpenAIClassificationBatch(
+                results=reason_results if include_reasons else no_reason_results
+            )
 
         with tempfile.TemporaryDirectory() as tmp:
             cache = JsonDiskCache(Path(tmp))
@@ -164,8 +178,11 @@ class TestCacheAndAnalysis(unittest.TestCase):
             cache = JsonDiskCache(Path(tmp))
             openai = OpenAISentimentConfig(api_key="test", model="test-model")
 
-            with patch("stock_sentiment.sentiment.analyze_articles_with_openai", return_value=reason_results) as mocked:
-                analyze_with_cache(
+            with patch(
+                "stock_sentiment.sentiment.analyze_articles_with_openai",
+                return_value=OpenAIClassificationBatch(results=reason_results),
+            ) as mocked:
+                first_summary = analyze_with_cache(
                     ticker="TSLA",
                     query="TSLA",
                     articles=articles,
@@ -174,7 +191,7 @@ class TestCacheAndAnalysis(unittest.TestCase):
                     openai=openai,
                     include_reasons=True,
                 )
-                analyze_with_cache(
+                second_summary = analyze_with_cache(
                     ticker="TSLA",
                     query="TSLA",
                     articles=articles,
@@ -185,6 +202,17 @@ class TestCacheAndAnalysis(unittest.TestCase):
                 )
 
                 self.assertEqual(mocked.call_count, 1)
+                self.assertEqual(first_summary.label, second_summary.label)
+                self.assertEqual(first_summary.signal, second_summary.signal)
+                self.assertEqual(
+                    first_summary.articles_analyzed,
+                    second_summary.articles_analyzed,
+                )
+                self.assertAlmostEqual(first_summary.score, second_summary.score)
+                self.assertAlmostEqual(
+                    first_summary.confidence,
+                    second_summary.confidence,
+                )
 
     def test_analyze_with_cache_normalizes_cached_score_sign(self) -> None:
         now = datetime(2025, 1, 1, tzinfo=timezone.utc)

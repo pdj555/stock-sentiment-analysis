@@ -121,6 +121,69 @@ def _extract_error_detail(body: bytes) -> str:
     return _truncate_for_error(text)
 
 
+def _append_next_step(message: str, hint: str | None) -> str:
+    if not hint:
+        return message
+    if message.endswith((".", "!", "?")):
+        return f"{message} {hint}"
+    return f"{message}. {hint}"
+
+
+def _next_step_for_http_failure(
+    *,
+    url: str,
+    status: int,
+    message: str,
+    last_error: Exception | None,
+) -> str | None:
+    combined = " ".join(part for part in [message, str(last_error or "")] if part).lower()
+    host = urlsplit(url).netloc.lower()
+    if "certificate verify failed" in combined:
+        return "Check your local TLS certificates or trust store."
+    if status == 0:
+        return "Check your network connection and try again."
+    if status == 401:
+        if "openai" in host or "newsapi" in host:
+            return "Check your API key and try again."
+        return "Check the request credentials and try again."
+    if status == 403:
+        if "openai" in host or "newsapi" in host:
+            return "Check that your API key has access to this service."
+        return "Check that this request is allowed and try again."
+    if status == 429:
+        return "Wait a moment and try again."
+    if status >= 500:
+        return "The provider is having trouble. Try again shortly."
+    return None
+
+
+def _format_request_failure(
+    *,
+    method: str,
+    url: str,
+    status: int,
+    message: str = "",
+    last_error: Exception | None = None,
+    retried: bool = False,
+) -> str:
+    safe_url = _redact_url(url)
+    if retried:
+        base = f"{method.upper()} {safe_url} failed after retries"
+    else:
+        base = f"{method.upper()} {safe_url} failed ({status})"
+    if message:
+        base = f"{base}: {message}"
+    return _append_next_step(
+        base,
+        _next_step_for_http_failure(
+            url=url,
+            status=status,
+            message=message,
+            last_error=last_error,
+        ),
+    )
+
+
 def _read_http_response(response: Any) -> HttpResponse:
     status = int(getattr(response, "status", 0) or 0)
     headers_obj = getattr(response, "headers", None)
@@ -199,6 +262,45 @@ def _request(
     return _maybe_decompress(http_response), last_error
 
 
+def _request_with_retries(
+    *,
+    method: str,
+    url: str,
+    headers: dict[str, str],
+    data: bytes | None,
+    timeout_seconds: float,
+    max_retries: int,
+    retry_backoff_base_seconds: float,
+    max_retry_after_seconds: float,
+) -> tuple[HttpResponse, Exception | None, bool]:
+    last_error: Exception | None = None
+    did_retry = False
+
+    for attempt in range(max_retries + 1):
+        http_response, last_error = _request(
+            method=method,
+            url=url,
+            headers=headers,
+            data=data,
+            timeout_seconds=timeout_seconds,
+        )
+        http_response = _maybe_decompress(http_response)
+
+        is_transient = http_response.status in {0, 429, 500, 502, 503, 504}
+        if is_transient and attempt < max_retries:
+            retry_after = _parse_retry_after_seconds(http_response.headers)
+            sleep_s = retry_backoff_base_seconds * (2**attempt) + random.random() * 0.25
+            if retry_after is not None:
+                sleep_s = max(sleep_s, min(float(retry_after), max_retry_after_seconds))
+            time.sleep(sleep_s)
+            did_retry = True
+            continue
+
+        return http_response, last_error, did_retry
+
+    return HttpResponse(status=0, headers={}, body=b""), last_error, did_retry
+
+
 def http_request_json(
     *,
     method: str,
@@ -229,50 +331,43 @@ def http_request_json(
         data = json.dumps(json_body).encode("utf-8")
         normalized_headers.setdefault("content-type", "application/json")
 
-    last_error: Exception | None = None
-    for attempt in range(max_retries + 1):
-        http_response, last_error = _request(
-            method=method,
-            url=url,
-            headers=normalized_headers,
-            data=data,
-            timeout_seconds=timeout_seconds,
+    http_response, last_error, did_retry = _request_with_retries(
+        method=method,
+        url=url,
+        headers=normalized_headers,
+        data=data,
+        timeout_seconds=timeout_seconds,
+        max_retries=max_retries,
+        retry_backoff_base_seconds=retry_backoff_base_seconds,
+        max_retry_after_seconds=max_retry_after_seconds,
+    )
+
+    if http_response.status < 200 or http_response.status >= 300:
+        message = _extract_error_detail(http_response.body)
+        if not message and last_error is not None:
+            message = str(last_error)
+        raise RemoteApiError(
+            _format_request_failure(
+                method=method,
+                url=url,
+                status=http_response.status,
+                message=message,
+                last_error=last_error,
+                retried=did_retry,
+            )
         )
 
-        is_transient = http_response.status in {0, 429, 500, 502, 503, 504}
-        if is_transient and attempt < max_retries:
-            retry_after = _parse_retry_after_seconds(http_response.headers)
-            sleep_s = retry_backoff_base_seconds * (2**attempt) + random.random() * 0.25
-            if retry_after is not None:
-                sleep_s = max(sleep_s, min(float(retry_after), max_retry_after_seconds))
-            time.sleep(sleep_s)
-            continue
-
-        if http_response.status < 200 or http_response.status >= 300:
-            message = _extract_error_detail(http_response.body)
-            if not message and last_error is not None:
-                message = str(last_error)
-            safe_url = _redact_url(url)
-            if message:
-                raise RemoteApiError(
-                    f"{method.upper()} {safe_url} failed ({http_response.status}): {message}"
-                )
-            raise RemoteApiError(f"{method.upper()} {safe_url} failed ({http_response.status})")
-
-        try:
-            parsed = json.loads(http_response.body.decode("utf-8", errors="replace"))
-        except json.JSONDecodeError as e:
-            safe_url = _redact_url(url)
-            raise RemoteApiError(f"{method.upper()} {safe_url} returned invalid JSON: {e}") from e
-        if not isinstance(parsed, dict):
-            safe_url = _redact_url(url)
-            raise RemoteApiError(
-                f"{method.upper()} {safe_url} returned unexpected JSON type: {type(parsed).__name__}"
-            )
-        return parsed
-
-    safe_url = _redact_url(url)
-    raise RemoteApiError(f"{method.upper()} {safe_url} failed after retries: {last_error}")
+    try:
+        parsed = json.loads(http_response.body.decode("utf-8", errors="replace"))
+    except json.JSONDecodeError as e:
+        safe_url = _redact_url(url)
+        raise RemoteApiError(f"{method.upper()} {safe_url} returned invalid JSON: {e}") from e
+    if not isinstance(parsed, dict):
+        safe_url = _redact_url(url)
+        raise RemoteApiError(
+            f"{method.upper()} {safe_url} returned unexpected JSON type: {type(parsed).__name__}"
+        )
+    return parsed
 
 
 def http_request_bytes(
@@ -295,37 +390,30 @@ def http_request_bytes(
     if headers:
         normalized_headers.update({k.lower(): v for k, v in headers.items()})
 
-    last_error: Exception | None = None
-    for attempt in range(max_retries + 1):
-        http_response, last_error = _request(
-            method=method,
-            url=url,
-            headers=normalized_headers,
-            data=None,
-            timeout_seconds=timeout_seconds,
+    http_response, last_error, did_retry = _request_with_retries(
+        method=method,
+        url=url,
+        headers=normalized_headers,
+        data=None,
+        timeout_seconds=timeout_seconds,
+        max_retries=max_retries,
+        retry_backoff_base_seconds=retry_backoff_base_seconds,
+        max_retry_after_seconds=max_retry_after_seconds,
+    )
+
+    if http_response.status < 200 or http_response.status >= 300:
+        message = _extract_error_detail(http_response.body)
+        if not message and last_error is not None:
+            message = str(last_error)
+        raise RemoteApiError(
+            _format_request_failure(
+                method=method,
+                url=url,
+                status=http_response.status,
+                message=message,
+                last_error=last_error,
+                retried=did_retry,
+            )
         )
 
-        is_transient = http_response.status in {0, 429, 500, 502, 503, 504}
-        if is_transient and attempt < max_retries:
-            retry_after = _parse_retry_after_seconds(http_response.headers)
-            sleep_s = retry_backoff_base_seconds * (2**attempt) + random.random() * 0.25
-            if retry_after is not None:
-                sleep_s = max(sleep_s, min(float(retry_after), max_retry_after_seconds))
-            time.sleep(sleep_s)
-            continue
-
-        if http_response.status < 200 or http_response.status >= 300:
-            message = _extract_error_detail(http_response.body)
-            if not message and last_error is not None:
-                message = str(last_error)
-            safe_url = _redact_url(url)
-            if message:
-                raise RemoteApiError(
-                    f"{method.upper()} {safe_url} failed ({http_response.status}): {message}"
-                )
-            raise RemoteApiError(f"{method.upper()} {safe_url} failed ({http_response.status})")
-
-        return http_response.body
-
-    safe_url = _redact_url(url)
-    raise RemoteApiError(f"{method.upper()} {safe_url} failed after retries: {last_error}")
+    return http_response.body
