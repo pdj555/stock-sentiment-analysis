@@ -105,13 +105,22 @@ class OpenAISentimentConfig:
     max_retries: int = 6
 
 
+@dataclass(frozen=True)
+class OpenAIClassificationBatch:
+    results: list[ArticleSentiment]
+    invalid_row_count: int = 0
+    unexpected_result_count: int = 0
+    duplicate_result_count: int = 0
+    missing_article_ids: tuple[str, ...] = ()
+
+
 def analyze_articles_with_openai(
     *,
     ticker: str,
     articles: list[NewsArticle],
     openai: OpenAISentimentConfig,
     include_reasons: bool = True,
-) -> list[ArticleSentiment]:
+) -> OpenAIClassificationBatch:
     if not openai.api_key:
         raise ConfigurationError("Missing OPENAI_API_KEY")
 
@@ -174,9 +183,14 @@ def analyze_articles_with_openai(
     if not isinstance(raw_results, list):
         raise ParseError("OpenAI output missing 'results' array")
 
+    requested_ids = {article.article_id for article in articles}
     by_id: dict[str, ArticleSentiment] = {}
+    invalid_row_count = 0
+    unexpected_result_count = 0
+    duplicate_result_count = 0
     for item in raw_results:
         if not isinstance(item, dict):
+            invalid_row_count += 1
             continue
         article_id = item.get("article_id")
         label = item.get("label")
@@ -185,12 +199,22 @@ def analyze_articles_with_openai(
         reason = item.get("reason") if include_reasons else None
 
         if not isinstance(article_id, str) or not article_id:
+            invalid_row_count += 1
+            continue
+        if article_id not in requested_ids:
+            unexpected_result_count += 1
+            continue
+        if article_id in by_id:
+            duplicate_result_count += 1
             continue
         if label not in {"positive", "negative", "neutral"}:
+            invalid_row_count += 1
             continue
         if not isinstance(score, (int, float)) or not isinstance(confidence, (int, float)):
+            invalid_row_count += 1
             continue
         if not math.isfinite(float(score)) or not math.isfinite(float(confidence)):
+            invalid_row_count += 1
             continue
 
         normalized_score = float(_clamp(float(score), -1.0, 1.0))
@@ -217,9 +241,11 @@ def analyze_articles_with_openai(
         )
 
     results: list[ArticleSentiment] = []
+    missing_article_ids: list[str] = []
     for article in articles:
         existing = by_id.get(article.article_id)
         if existing is None:
+            missing_article_ids.append(article.article_id)
             results.append(
                 ArticleSentiment(
                     article_id=article.article_id,
@@ -232,7 +258,48 @@ def analyze_articles_with_openai(
         else:
             results.append(existing)
 
-    return results
+    return OpenAIClassificationBatch(
+        results=results,
+        invalid_row_count=invalid_row_count,
+        unexpected_result_count=unexpected_result_count,
+        duplicate_result_count=duplicate_result_count,
+        missing_article_ids=tuple(missing_article_ids),
+    )
+
+
+def _format_count(count: int, singular: str, plural: str | None = None) -> str:
+    word = singular if count == 1 else (plural or f"{singular}s")
+    return f"{count} {word}"
+
+
+def _classification_warning_messages(
+    *,
+    invalid_row_count: int,
+    unexpected_result_count: int,
+    duplicate_result_count: int,
+    missing_count: int,
+) -> list[str]:
+    warnings: list[str] = []
+    if invalid_row_count:
+        warnings.append(
+            f"OpenAI returned {_format_count(invalid_row_count, 'invalid classification row')}."
+        )
+    if unexpected_result_count:
+        warnings.append(
+            "OpenAI returned "
+            f"{_format_count(unexpected_result_count, 'classification')} for unexpected articles; they were ignored."
+        )
+    if duplicate_result_count:
+        warnings.append(
+            "OpenAI returned "
+            f"{_format_count(duplicate_result_count, 'duplicate classification')}; later duplicates were ignored."
+        )
+    if missing_count:
+        warnings.append(
+            "OpenAI omitted classifications for "
+            f"{_format_count(missing_count, 'article')}; they were marked neutral with zero confidence."
+        )
+    return warnings
 
 
 def summarize_sentiment(
@@ -242,6 +309,7 @@ def summarize_sentiment(
     results: list[ArticleSentiment],
     article_by_id: dict[str, NewsArticle],
     half_life_hours: float = 24.0,
+    classification_warnings: list[str] | tuple[str, ...] = (),
 ) -> SentimentSummary:
     weights: list[float] = []
     weighted_scores: list[float] = []
@@ -277,6 +345,8 @@ def summarize_sentiment(
         signal=_signal_from_score(score, confidence),
         articles_analyzed=len(results),
         results=results,
+        classification_degraded=bool(classification_warnings),
+        classification_warnings=tuple(classification_warnings),
     )
 
 
@@ -297,9 +367,13 @@ def analyze_with_cache(
     cached_results: dict[str, ArticleSentiment] = {}
     to_analyze: list[NewsArticle] = []
 
-    prompt_version_no_reasons = "openai_sentiment_v1"
-    prompt_version_with_reasons = "openai_sentiment_v2"
+    prompt_version_no_reasons = "openai_sentiment_v3"
+    prompt_version_with_reasons = "openai_sentiment_v4"
     prompt_version = prompt_version_with_reasons if include_reasons else prompt_version_no_reasons
+    invalid_row_count = 0
+    unexpected_result_count = 0
+    duplicate_result_count = 0
+    missing_article_ids: set[str] = set()
 
     def cache_key(prompt_version: str, article_id: str) -> str:
         base_url = openai.base_url.rstrip("/")
@@ -396,30 +470,56 @@ def analyze_with_cache(
     fresh_results: list[ArticleSentiment] = []
     for i in range(0, len(to_analyze), max(1, batch_size)):
         batch = to_analyze[i : i + batch_size]
-        fresh_results.extend(
-            analyze_articles_with_openai(
-                ticker=ticker, articles=batch, openai=openai, include_reasons=include_reasons
-            )
+        batch_result = analyze_articles_with_openai(
+            ticker=ticker,
+            articles=batch,
+            openai=openai,
+            include_reasons=include_reasons,
         )
+        fresh_results.extend(batch_result.results)
+        invalid_row_count += batch_result.invalid_row_count
+        unexpected_result_count += batch_result.unexpected_result_count
+        duplicate_result_count += batch_result.duplicate_result_count
+        missing_article_ids.update(batch_result.missing_article_ids)
 
     if cache:
         for r in fresh_results:
+            if r.article_id in missing_article_ids:
+                continue
             cache.set(cache_key(prompt_version, r.article_id), r.to_dict())
 
     fresh_by_id = {r.article_id: r for r in fresh_results}
     merged: list[ArticleSentiment] = []
+    fallback_article_ids: list[str] = []
     for a in articles:
+        cached = cached_results.get(a.article_id)
+        if cached is not None:
+            merged.append(cached)
+            continue
+
+        fresh = fresh_by_id.get(a.article_id)
+        if fresh is not None:
+            merged.append(fresh)
+            continue
+
+        fallback_article_ids.append(a.article_id)
         merged.append(
-            cached_results.get(a.article_id)
-            or fresh_by_id.get(a.article_id)
-            or ArticleSentiment(
+            ArticleSentiment(
                 article_id=a.article_id,
                 label="neutral",
                 score=0.0,
                 confidence=0.0,
-                reason=None,
+                reason="No classification returned" if include_reasons else None,
             )
         )
+
+    missing_total = len(missing_article_ids) + len(fallback_article_ids)
+    classification_warnings = _classification_warning_messages(
+        invalid_row_count=invalid_row_count,
+        unexpected_result_count=unexpected_result_count,
+        duplicate_result_count=duplicate_result_count,
+        missing_count=missing_total,
+    )
 
     return summarize_sentiment(
         ticker=ticker,
@@ -427,4 +527,5 @@ def analyze_with_cache(
         results=merged,
         article_by_id=article_by_id,
         half_life_hours=half_life_hours,
+        classification_warnings=classification_warnings,
     )

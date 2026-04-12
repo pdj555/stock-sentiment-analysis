@@ -5,6 +5,7 @@ from pathlib import Path
 
 from stock_sentiment import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 from stock_sentiment.env import load_dotenv
+from stock_sentiment.errors import ConfigurationError
 
 
 # Match the CLI: default to `./.env` in the current working directory.
@@ -56,7 +57,7 @@ def require_env(name: str) -> str:
 
     value = os.environ.get(name, "").strip()
     if not value:
-        raise RuntimeError(f"Missing required environment variable: {name}")
+        raise ConfigurationError(f"Missing required environment variable: {name}")
     return value
 
 

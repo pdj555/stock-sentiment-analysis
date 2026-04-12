@@ -114,9 +114,11 @@ Notes:
 - If Google News RSS fails with a certificate or TLS error, check your local trust store or set `NEWSAPI_KEY` so `--source auto` can prefer NewsAPI.
 - `OPENAI_API_KEY` is required unless all needed per-article classifications are already cached.
 - Add `--include-articles` to embed article metadata in JSON output.
+- Use `--include-reasons` with `--format json` or `--verbose`.
 - Add `--verbose` to print per-article sentiment details in text mode.
 - OpenAI results are cached locally by default (see `--cache-dir`, `--no-cache`, `--cache-ttl-hours`).
-- JSON output includes `source`, `source_label`, `lookback_days`, and `article_cap` fields for downstream systems.
+- If OpenAI returns partial classifications, the CLI and UI flag the run as degraded instead of presenting a clean-looking neutral result.
+- JSON output includes `source`, `source_label`, `lookback_days`, `article_cap`, `classification_degraded`, and `classification_warnings` fields for downstream systems.
 
 Disclaimer: This tool is for informational purposes only and is not financial advice.
 

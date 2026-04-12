@@ -38,12 +38,15 @@ def _format_text(
     conf = f"{summary.confidence:.2f}"
     as_of = summary.as_of.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     article_word = "article" if summary.articles_analyzed == 1 else "articles"
-    return (
+    rendered = (
         f"{summary.ticker} sentiment {score} ({summary.label}, confidence {conf}), "
         f"signal {summary.signal}, from {summary.articles_analyzed} {article_word} "
         f"out of a {article_cap}-article cap using {source_label} "
         f"over a {lookback_days}-day lookback as of {as_of}"
     )
+    if summary.classification_degraded and summary.classification_warnings:
+        rendered += f" Warning: {' '.join(summary.classification_warnings)}"
+    return rendered
 
 
 def _argv_list(argv: list[str] | None) -> list[str]:
@@ -195,6 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  stock-sentiment ui\n\n"
             "Notes:\n"
             "  Add NEWSAPI_KEY if you want auto to prefer NewsAPI.\n"
+            "  --env-file FILE reads env vars from FILE instead of ./.env in the current working directory.\n"
             "  For container hosts, bind 0.0.0.0 and use the platform port.\n"
         ),
     )
@@ -215,7 +219,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         metavar="FILE",
         default=Path(".env"),
-        help=argparse.SUPPRESS,
+        help="Read env vars from FILE instead of ./.env",
     )
     ui.add_argument(
         "--dotenv",
@@ -250,6 +254,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "analyze":
+        if args.include_reasons and args.format == "text" and not args.verbose:
+            raise ConfigurationError(
+                "--include-reasons requires --verbose or --format json."
+            )
         result = run_analysis(
             AnalysisRequest(
                 ticker=args.ticker,

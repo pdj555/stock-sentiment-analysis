@@ -163,7 +163,7 @@ def _fetch_articles(
     if source_used == "newsapi":
         if not newsapi_key:
             raise ConfigurationError(
-                "Missing NEWSAPI_KEY (required when source is newsapi)."
+                "Missing NEWSAPI_KEY. Set it, or rerun with --source auto or --source google-rss."
             )
         try:
             return source_used, fetch_everything(

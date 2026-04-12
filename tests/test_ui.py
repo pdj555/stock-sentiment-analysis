@@ -21,7 +21,10 @@ from stock_sentiment.ui import (
 )
 
 
-def _fake_result() -> AnalysisRunResult:
+def _fake_result(
+    *,
+    classification_warnings: tuple[str, ...] = (),
+) -> AnalysisRunResult:
     article = NewsArticle(
         article_id="a1",
         title="Example article",
@@ -48,6 +51,8 @@ def _fake_result() -> AnalysisRunResult:
                 reason="Demand outlook improved.",
             )
         ],
+        classification_degraded=bool(classification_warnings),
+        classification_warnings=classification_warnings,
     )
     return AnalysisRunResult(
         summary=summary,
@@ -127,8 +132,27 @@ class TestUi(unittest.TestCase):
         self.assertEqual(payload["summary"]["source"], "google-rss")
         self.assertEqual(payload["summary"]["source_label"], "Google News RSS")
         self.assertEqual(payload["summary"]["article_cap"], 18)
+        self.assertFalse(payload["summary"]["classification_degraded"])
+        self.assertEqual(payload["summary"]["classification_warnings"], [])
         self.assertEqual(payload["articles"][0]["reason"], "Demand outlook improved.")
         self.assertEqual(payload["articles"][0]["label"], "positive")
+
+    def test_build_response_payload_includes_classification_warning_state(self) -> None:
+        payload = _build_response_payload(
+            _fake_result(
+                classification_warnings=(
+                    "OpenAI omitted classifications for 1 article; they were marked neutral with zero confidence.",
+                )
+            )
+        )
+
+        self.assertTrue(payload["summary"]["classification_degraded"])
+        self.assertEqual(
+            payload["summary"]["classification_warnings"],
+            [
+                "OpenAI omitted classifications for 1 article; they were marked neutral with zero confidence."
+            ],
+        )
 
     def test_display_source_name_hides_internal_slugs(self) -> None:
         self.assertEqual(_display_source_name("newsapi"), "NewsAPI")
@@ -175,6 +199,19 @@ class TestUi(unittest.TestCase):
         self.assertEqual(status, "400 Bad Request")
         self.assertEqual(payload["error"]["message"], "Ticker cannot be empty.")
 
+    def test_wsgi_app_rejects_non_string_ticker(self) -> None:
+        app = create_app(lambda ticker: _fake_result())
+
+        status, _, payload = _run_app(
+            app,
+            method="POST",
+            path="/api/analyze",
+            payload={"ticker": ["TSLA"]},
+        )
+
+        self.assertEqual(status, "400 Bad Request")
+        self.assertEqual(payload["error"]["message"], "Ticker must be a string.")
+
     def test_wsgi_app_surfaces_unexpected_error_with_next_step(self) -> None:
         app = create_app(lambda ticker: (_ for _ in ()).throw(RuntimeError("boom")))
 
@@ -185,12 +222,14 @@ class TestUi(unittest.TestCase):
                 path="/api/analyze",
                 payload={"ticker": "TSLA"},
             )
+            logged = err.getvalue()
 
         self.assertEqual(status, "500 Internal Server Error")
         self.assertEqual(
             payload["error"]["message"],
             "Analysis failed unexpectedly. Try again in a moment or check the server logs.",
         )
+        self.assertIn("RuntimeError: boom", logged)
 
     def test_wsgi_app_404_includes_route_guidance(self) -> None:
         app = create_app(lambda ticker: _fake_result())
@@ -224,6 +263,8 @@ class TestUi(unittest.TestCase):
             self.assertEqual(payload["summary"]["source"], "google-rss")
             self.assertEqual(payload["summary"]["source_label"], "Google News RSS")
             self.assertEqual(payload["summary"]["article_cap"], 18)
+            self.assertFalse(payload["summary"]["classification_degraded"])
+            self.assertEqual(payload["summary"]["classification_warnings"], [])
         finally:
             server.shutdown()
             thread.join(timeout=2)

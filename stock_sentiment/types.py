@@ -59,6 +59,8 @@ class SentimentSummary:
     signal: Signal
     articles_analyzed: int
     results: list[ArticleSentiment]
+    classification_degraded: bool = False
+    classification_warnings: tuple[str, ...] = ()
 
     def to_dict(self, *, include_reasons: bool = True) -> dict[str, Any]:
         return {
@@ -70,5 +72,7 @@ class SentimentSummary:
             "confidence": self.confidence,
             "signal": self.signal,
             "articles_analyzed": self.articles_analyzed,
+            "classification_degraded": self.classification_degraded,
+            "classification_warnings": list(self.classification_warnings),
             "results": [r.to_dict(include_reason=include_reasons) for r in self.results],
         }

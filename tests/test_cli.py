@@ -29,7 +29,11 @@ def _fake_article(article_id: str = "a1") -> NewsArticle:
     )
 
 
-def _fake_summary(*, include_reason: bool) -> SentimentSummary:
+def _fake_summary(
+    *,
+    include_reason: bool,
+    classification_warnings: tuple[str, ...] = (),
+) -> SentimentSummary:
     return SentimentSummary(
         ticker="TSLA",
         query="TSLA",
@@ -48,12 +52,22 @@ def _fake_summary(*, include_reason: bool) -> SentimentSummary:
                 reason="reason" if include_reason else None,
             )
         ],
+        classification_degraded=bool(classification_warnings),
+        classification_warnings=classification_warnings,
     )
 
 
-def _fake_result(*, include_reason: bool, source: str = "google-rss") -> AnalysisRunResult:
+def _fake_result(
+    *,
+    include_reason: bool,
+    source: str = "google-rss",
+    classification_warnings: tuple[str, ...] = (),
+) -> AnalysisRunResult:
     return AnalysisRunResult(
-        summary=_fake_summary(include_reason=include_reason),
+        summary=_fake_summary(
+            include_reason=include_reason,
+            classification_warnings=classification_warnings,
+        ),
         articles=[_fake_article()],
         source=source,
         lookback_days=3,
@@ -74,6 +88,22 @@ class TestCli(unittest.TestCase):
         self.assertIn("3-day lookback", rendered)
         self.assertIn("25-article cap", rendered)
         self.assertNotIn("lookback_days=", rendered)
+
+    def test_format_text_surfaces_classification_warnings(self) -> None:
+        rendered = cli._format_text(
+            _fake_summary(
+                include_reason=False,
+                classification_warnings=(
+                    "OpenAI omitted classifications for 1 article; they were marked neutral with zero confidence.",
+                ),
+            ),
+            source_label="Google News RSS",
+            lookback_days=3,
+            article_cap=25,
+        )
+
+        self.assertIn("Warning:", rendered)
+        self.assertIn("OpenAI omitted classifications for 1 article", rendered)
 
     def test_module_entrypoint_help_for_analyze_command(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
@@ -109,6 +139,7 @@ class TestCli(unittest.TestCase):
         self.assertIn("Open a local web UI for one-ticker sentiment checks.", result.stdout)
         self.assertIn("OPENAI_API_KEY", result.stdout)
         self.assertIn("--port", result.stdout)
+        self.assertIn("--env-file FILE", result.stdout)
 
     def test_cli_ui_starts_server(self) -> None:
         with patch("stock_sentiment.cli.load_dotenv"), patch(
@@ -138,6 +169,8 @@ class TestCli(unittest.TestCase):
         self.assertEqual(payload["source_label"], "Google News RSS")
         self.assertEqual(payload["lookback_days"], 3)
         self.assertEqual(payload["article_cap"], 25)
+        self.assertFalse(payload["classification_degraded"])
+        self.assertEqual(payload["classification_warnings"], [])
         self.assertNotIn("reason", payload["results"][0])
         self.assertFalse(mock_run_analysis.call_args.args[0].include_reasons)
 
@@ -158,6 +191,16 @@ class TestCli(unittest.TestCase):
         payload = json.loads(out.getvalue())
         self.assertEqual(payload["results"][0]["reason"], "reason")
         self.assertTrue(mock_run_analysis.call_args.args[0].include_reasons)
+
+    def test_cli_rejects_include_reasons_without_verbose_or_json(self) -> None:
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "x"}, clear=False), patch(
+            "stock_sentiment.cli.load_dotenv"
+        ):
+            with self.assertRaisesRegex(
+                ConfigurationError,
+                r"--include-reasons requires --verbose or --format json\.",
+            ):
+                cli.main(["analyze", "TSLA", "--include-reasons", "--no-cache"])
 
     def test_cli_env_file_sets_parser_backed_defaults(self) -> None:
         out = io.StringIO()

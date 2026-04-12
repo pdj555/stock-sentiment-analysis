@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import traceback
 from collections.abc import Callable, Iterable
 from wsgiref.simple_server import WSGIRequestHandler, make_server
 
@@ -197,6 +198,13 @@ UI_HTML = """<!doctype html>
         padding: 20px 0;
         border-bottom: 1px solid var(--line);
         animation: rise 0.24s ease;
+      }
+
+      .summary-warning {
+        margin: 14px 0 0;
+        font-size: 14px;
+        line-height: 1.4;
+        color: var(--negative);
       }
 
       .metric {
@@ -452,6 +460,12 @@ UI_HTML = """<!doctype html>
       }
 
       function renderSummary(summaryData) {
+        const warningText = Array.isArray(summaryData.classification_warnings)
+          ? summaryData.classification_warnings.join(" ")
+          : "";
+        const warningHtml = summaryData.classification_degraded && warningText
+          ? `<p class="summary-warning">${escapeHtml(warningText)}</p>`
+          : "";
         const html = `
           <dl class="summary-grid">
             <div class="metric">
@@ -475,6 +489,7 @@ UI_HTML = """<!doctype html>
               <dd>${escapeHtml(summaryData.articles_analyzed)}</dd>
             </div>
           </dl>
+          ${warningHtml}
         `;
 
         summary.className = "";
@@ -550,11 +565,11 @@ UI_HTML = """<!doctype html>
             ? `${sourceLabel} - ${windowDays}-day lookback${coverage} - as of ${asOf}`
             : `${sourceLabel} - ${windowDays}-day lookback${coverage}`;
         } catch (error) {
-          renderError(
-            error.message ||
-            "The analysis could not load. Check your connection or restart the server, then try again."
-          );
-          statusLine.textContent = "Check the connection and try again.";
+          const message = error && error.message
+            ? error.message
+            : "The analysis could not load. Check your connection or restart the server, then try again.";
+          renderError(message);
+          statusLine.textContent = message;
         } finally {
           submitButton.disabled = false;
         }
@@ -650,6 +665,8 @@ def _build_response_payload(result: AnalysisRunResult) -> dict[str, object]:
             "score": result.summary.score,
             "confidence": result.summary.confidence,
             "articles_analyzed": result.summary.articles_analyzed,
+            "classification_degraded": result.summary.classification_degraded,
+            "classification_warnings": list(result.summary.classification_warnings),
             "as_of": result.summary.as_of.isoformat(),
             "source": result.source,
             "source_label": _display_source_name(result.source),
@@ -760,7 +777,10 @@ def create_app(
         if method == "POST" and path == "/api/analyze":
             try:
                 body = _read_json_body(environ)
-                ticker = str(body.get("ticker") or "")
+                raw_ticker = body.get("ticker", "")
+                if not isinstance(raw_ticker, str):
+                    raise ConfigurationError("Ticker must be a string.")
+                ticker = raw_ticker.strip()
                 result = analyze_func(ticker)
                 return _json_response(
                     start_response,
@@ -780,7 +800,7 @@ def create_app(
                     payload={"error": {"message": str(e)}},
                 )
             except Exception:
-                print("Unexpected UI error.", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
                 return _json_response(
                     start_response,
                     status="500 Internal Server Error",

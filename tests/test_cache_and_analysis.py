@@ -8,7 +8,11 @@ from unittest.mock import patch
 
 from stock_sentiment import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 from stock_sentiment.cache import JsonDiskCache
-from stock_sentiment.sentiment import OpenAISentimentConfig, analyze_with_cache
+from stock_sentiment.sentiment import (
+    OpenAIClassificationBatch,
+    OpenAISentimentConfig,
+    analyze_with_cache,
+)
 from stock_sentiment.types import ArticleSentiment, NewsArticle
 
 
@@ -56,7 +60,8 @@ class TestCacheAndAnalysis(unittest.TestCase):
             openai = OpenAISentimentConfig(api_key="test", model="test-model")
 
             with patch(
-                "stock_sentiment.sentiment.analyze_articles_with_openai", return_value=fake_results
+                "stock_sentiment.sentiment.analyze_articles_with_openai",
+                return_value=OpenAIClassificationBatch(results=fake_results),
             ) as mocked:
                 analyze_with_cache(
                     ticker="TSLA",
@@ -110,8 +115,10 @@ class TestCacheAndAnalysis(unittest.TestCase):
             ArticleSentiment(article_id="a2", label="negative", score=-0.6, confidence=0.8, reason="legal risk"),
         ]
 
-        def fake_analyze(*, include_reasons: bool, **_: object) -> list[ArticleSentiment]:
-            return reason_results if include_reasons else no_reason_results
+        def fake_analyze(*, include_reasons: bool, **_: object) -> OpenAIClassificationBatch:
+            return OpenAIClassificationBatch(
+                results=reason_results if include_reasons else no_reason_results
+            )
 
         with tempfile.TemporaryDirectory() as tmp:
             cache = JsonDiskCache(Path(tmp))
@@ -171,7 +178,10 @@ class TestCacheAndAnalysis(unittest.TestCase):
             cache = JsonDiskCache(Path(tmp))
             openai = OpenAISentimentConfig(api_key="test", model="test-model")
 
-            with patch("stock_sentiment.sentiment.analyze_articles_with_openai", return_value=reason_results) as mocked:
+            with patch(
+                "stock_sentiment.sentiment.analyze_articles_with_openai",
+                return_value=OpenAIClassificationBatch(results=reason_results),
+            ) as mocked:
                 first_summary = analyze_with_cache(
                     ticker="TSLA",
                     query="TSLA",

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from stock_sentiment.errors import ConfigurationError, RemoteApiError
 from stock_sentiment.runtime import AnalysisRequest, run_analysis
+from stock_sentiment.sentiment import OpenAIClassificationBatch
 from stock_sentiment.types import ArticleSentiment, NewsArticle, SentimentSummary
 
 
@@ -124,14 +125,16 @@ class TestRuntime(unittest.TestCase):
             side_effect=OSError("cache read failed"),
         ), patch(
             "stock_sentiment.sentiment.analyze_articles_with_openai",
-            return_value=[
-                ArticleSentiment(
-                    article_id="a1",
-                    label="neutral",
-                    score=0.0,
-                    confidence=0.5,
-                )
-            ],
+            return_value=OpenAIClassificationBatch(
+                results=[
+                    ArticleSentiment(
+                        article_id="a1",
+                        label="neutral",
+                        score=0.0,
+                        confidence=0.5,
+                    )
+                ]
+            ),
         ):
             result = run_analysis(
                 AnalysisRequest(
@@ -183,3 +186,17 @@ class TestRuntime(unittest.TestCase):
         self.assertEqual(result.source, "newsapi")
         self.assertEqual(result.article_cap, 175)
         self.assertEqual(mock_fetch_everything.call_args.kwargs["limit"], 175)
+
+    def test_run_analysis_requires_newsapi_key_with_next_step(self) -> None:
+        with self.assertRaisesRegex(
+            ConfigurationError,
+            r"Missing NEWSAPI_KEY\. Set it, or rerun with --source auto or --source google-rss\.",
+        ):
+            run_analysis(
+                AnalysisRequest(
+                    ticker="TSLA",
+                    source="newsapi",
+                    openai_api_key="x",
+                    use_cache=False,
+                )
+            )
