@@ -61,6 +61,16 @@ def _fake_result(*, include_reason: bool, source: str = "google-rss") -> Analysi
 
 
 class TestCli(unittest.TestCase):
+    def test_format_text_uses_lookback_days_name(self) -> None:
+        rendered = cli._format_text(
+            _fake_summary(include_reason=False),
+            source="google-rss",
+            lookback_days=3,
+        )
+
+        self.assertIn("lookback_days=3", rendered)
+        self.assertNotIn("window=3d", rendered)
+
     def test_module_entrypoint_help_for_analyze_command(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
         result = subprocess.run(
@@ -74,6 +84,11 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertIn("Analyze recent news sentiment for a stock ticker.", result.stdout)
         self.assertIn("ticker", result.stdout)
+        self.assertIn(
+            "Search phrase used to find articles; defaults to",
+            result.stdout,
+        )
+        self.assertIn("--env-file ENV_FILE", result.stdout)
 
     def test_module_entrypoint_help_for_ui_command(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]

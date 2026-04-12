@@ -6,8 +6,9 @@ import unittest
 from datetime import datetime, timezone
 from threading import Thread
 from urllib.request import Request, urlopen
-from wsgiref.simple_server import make_server
+from wsgiref.simple_server import WSGIRequestHandler, make_server
 
+from app import app as deployed_app
 from stock_sentiment.errors import ConfigurationError
 from stock_sentiment.runtime import AnalysisRunResult
 from stock_sentiment.types import ArticleSentiment, NewsArticle, SentimentSummary
@@ -99,10 +100,15 @@ def _run_app(
 
 
 def _serve_http(app):
-    server = make_server("127.0.0.1", 0, app)
+    server = make_server("127.0.0.1", 0, app, handler_class=_QuietRequestHandler)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return server, thread, f"http://127.0.0.1:{server.server_port}"
+
+
+class _QuietRequestHandler(WSGIRequestHandler):
+    def log_message(self, format: str, *args: object) -> None:
+        return None
 
 
 class TestUi(unittest.TestCase):
@@ -188,3 +194,10 @@ class TestUi(unittest.TestCase):
             server.shutdown()
             thread.join(timeout=2)
             server.server_close()
+
+    def test_root_app_entrypoint_serves_health(self) -> None:
+        status, headers, payload = _run_app(deployed_app, method="GET", path="/health")
+
+        self.assertEqual(status, "200 OK")
+        self.assertTrue(headers["Content-Type"].startswith("application/json"))
+        self.assertEqual(payload, {"ok": True})

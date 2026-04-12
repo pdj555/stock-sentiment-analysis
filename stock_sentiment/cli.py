@@ -29,7 +29,7 @@ def _format_text(summary: SentimentSummary, *, source: str, lookback_days: int) 
     return (
         f"{summary.ticker} sentiment {score} ({summary.label}, confidence {conf}) "
         f"signal={summary.signal} articles={summary.articles_analyzed} "
-        f"source={source} window={lookback_days}d as_of={as_of}"
+        f"source={source} lookback_days={lookback_days} as_of={as_of}"
     )
 
 
@@ -74,13 +74,13 @@ def build_parser() -> argparse.ArgumentParser:
             "  stock-sentiment analyze TSLA\n\n"
             "Notes:\n"
             "  --source auto prefers NewsAPI when NEWSAPI_KEY is set, otherwise Google News RSS.\n"
-            "  --env-file PATH reads env vars from PATH instead of ./.env in the current working directory.\n"
+            "  --env-file FILE reads env vars from FILE instead of ./.env in the current working directory.\n"
         ),
     )
     analyze.add_argument("ticker", help="Stock ticker symbol (e.g., TSLA)")
     analyze.add_argument(
         "--query",
-        help="Override the news search text (advanced; defaults to ticker)",
+        help="Search phrase used to find articles; defaults to the ticker symbol.",
     )
     analyze.add_argument(
         "--days", type=int, default=3, help="Look back this many days (default: 3)"
@@ -161,7 +161,7 @@ def build_parser() -> argparse.ArgumentParser:
         dest="env_file",
         type=Path,
         default=Path(".env"),
-        help="Read env vars from PATH instead of ./.env",
+        help="Read env vars from FILE instead of ./.env",
     )
 
     ui = sub.add_parser(

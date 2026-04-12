@@ -29,21 +29,22 @@ You can keep secrets in the shell or in a local `./.env` file in your current wo
 
 ```bash
 OPENAI_API_KEY=...
-# Optional (only needed for --source newsapi; otherwise Google News RSS is used)
+# Optional (needed for --source newsapi, and lets --source auto prefer NewsAPI)
 NEWSAPI_KEY=...
 # Optional
 OPENAI_MODEL=gpt-5-nano-2025-08-07
 OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-When working in this repository, that usually means the repository root. Use `--env-file PATH` to read env vars from a different file instead of `./.env`.
+When working in this repository, that usually means the repository root. Use `--env-file FILE` to read env vars from a different file instead of `./.env`.
 
 ## Installation
 
-Optional console script:
+Editable install (adds the `stock-sentiment` command):
 
 ```bash
 python3 -m pip install -e .
+stock-sentiment analyze TSLA
 ```
 
 ## Deploy
@@ -59,14 +60,30 @@ python -m stock_sentiment ui --host 0.0.0.0 --port 8080
 Typical flow from the repository root:
 
 ```bash
-fly launch --no-deploy
+fly launch --generate-name --internal-port 8080 --no-deploy
 fly secrets set OPENAI_API_KEY=...
 # Optional
 fly secrets set NEWSAPI_KEY=...
 fly deploy
 ```
 
-### Vercel and other Python WSGI hosts
+### Vercel
+
+Vercel detects the root `app.py` entrypoint because it exports a top-level WSGI app named `app`. The included `vercel.json` excludes tests and local artifact folders from the Python bundle.
+
+Typical flow from the repository root:
+
+```bash
+vercel env add OPENAI_API_KEY preview
+vercel env add OPENAI_API_KEY production
+# Optional
+vercel env add NEWSAPI_KEY preview
+vercel env add NEWSAPI_KEY production
+vercel deploy
+vercel deploy --prod
+```
+
+### Other Python WSGI hosts
 
 `app.py` exports the WSGI app as `app`, which keeps the same UI surface available to hosts that accept a Python WSGI entrypoint.
 

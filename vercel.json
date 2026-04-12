@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app.py": {
+      "excludeFiles": "{tests/**,output/**,__pycache__/**,stock_sentiment_analysis.egg-info/**,.github/**,.venv/**}"
+    }
+  }
+}

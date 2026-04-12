@@ -172,7 +172,7 @@ class TestCacheAndAnalysis(unittest.TestCase):
             openai = OpenAISentimentConfig(api_key="test", model="test-model")
 
             with patch("stock_sentiment.sentiment.analyze_articles_with_openai", return_value=reason_results) as mocked:
-                analyze_with_cache(
+                first_summary = analyze_with_cache(
                     ticker="TSLA",
                     query="TSLA",
                     articles=articles,
@@ -181,7 +181,7 @@ class TestCacheAndAnalysis(unittest.TestCase):
                     openai=openai,
                     include_reasons=True,
                 )
-                analyze_with_cache(
+                second_summary = analyze_with_cache(
                     ticker="TSLA",
                     query="TSLA",
                     articles=articles,
@@ -192,6 +192,17 @@ class TestCacheAndAnalysis(unittest.TestCase):
                 )
 
                 self.assertEqual(mocked.call_count, 1)
+                self.assertEqual(first_summary.label, second_summary.label)
+                self.assertEqual(first_summary.signal, second_summary.signal)
+                self.assertEqual(
+                    first_summary.articles_analyzed,
+                    second_summary.articles_analyzed,
+                )
+                self.assertAlmostEqual(first_summary.score, second_summary.score)
+                self.assertAlmostEqual(
+                    first_summary.confidence,
+                    second_summary.confidence,
+                )
 
     def test_analyze_with_cache_normalizes_cached_score_sign(self) -> None:
         now = datetime(2025, 1, 1, tzinfo=timezone.utc)
