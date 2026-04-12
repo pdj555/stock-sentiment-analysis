@@ -126,10 +126,12 @@ Disclaimer: This tool is for informational purposes only and is not financial ad
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
 
-Optional browser smoke test:
+Optional browser smoke test for the local UI (no API keys needed):
+
+This starts a local fixture server and drives the browser through the happy path.
 
 ```bash
 npm install
-npx playwright install chromium
+npx playwright install --with-deps chromium
 npx playwright test tests/test_ui_browser.spec.js --reporter=line --output=output/playwright/test-results
 ```

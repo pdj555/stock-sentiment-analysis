@@ -30,24 +30,48 @@ def _parse_published_at(value: Any) -> datetime | None:
     return dt
 
 
-def fetch_everything(
+def _parse_article(raw: Any) -> NewsArticle | None:
+    if not isinstance(raw, dict):
+        return None
+
+    title = (raw.get("title") or "").strip()
+    description = (raw.get("description") or "").strip()
+    url_value = raw.get("url")
+    url_str = url_value.strip() if isinstance(url_value, str) and url_value.strip() else None
+
+    source_name = None
+    source_raw = raw.get("source")
+    if isinstance(source_raw, dict) and isinstance(source_raw.get("name"), str):
+        source_name = source_raw["name"].strip() or None
+
+    published_at = _parse_published_at(raw.get("publishedAt"))
+    article_id = _stable_article_id(url_str or "", title, str(published_at or ""))
+
+    if not title and not description:
+        return None
+
+    return NewsArticle(
+        article_id=article_id,
+        title=title,
+        description=description,
+        url=url_str,
+        source=source_name,
+        published_at=published_at,
+    )
+
+
+def _request_everything_page(
     *,
     api_key: str,
     query: str,
-    from_date: str | None = None,
-    to_date: str | None = None,
-    language: str = "en",
-    sort_by: str = "publishedAt",
-    page_size: int = 50,
-    page: int = 1,
-    timeout_seconds: float = 30.0,
+    from_date: str | None,
+    to_date: str | None,
+    language: str,
+    sort_by: str,
+    page_size: int,
+    page: int,
+    timeout_seconds: float,
 ) -> list[NewsArticle]:
-    """
-    Fetch articles from NewsAPI /v2/everything.
-
-    Dates use ISO-8601 or YYYY-MM-DD per NewsAPI.
-    """
-
     params: dict[str, Any] = {
         "q": query,
         "language": language,
@@ -70,34 +94,78 @@ def fetch_everything(
 
     articles: list[NewsArticle] = []
     for raw in data.get("articles", []) or []:
-        if not isinstance(raw, dict):
-            continue
+        article = _parse_article(raw)
+        if article is not None:
+            articles.append(article)
+    return articles
 
-        title = (raw.get("title") or "").strip()
-        description = (raw.get("description") or "").strip()
-        url_value = raw.get("url")
-        url_str = url_value.strip() if isinstance(url_value, str) and url_value.strip() else None
 
-        source_name = None
-        source_raw = raw.get("source")
-        if isinstance(source_raw, dict) and isinstance(source_raw.get("name"), str):
-            source_name = source_raw["name"].strip() or None
+def fetch_everything(
+    *,
+    api_key: str,
+    query: str,
+    from_date: str | None = None,
+    to_date: str | None = None,
+    language: str = "en",
+    sort_by: str = "publishedAt",
+    page_size: int = 50,
+    page: int = 1,
+    limit: int | None = None,
+    timeout_seconds: float = 30.0,
+) -> list[NewsArticle]:
+    """
+    Fetch articles from NewsAPI /v2/everything.
 
-        published_at = _parse_published_at(raw.get("publishedAt"))
-        article_id = _stable_article_id(url_str or "", title, str(published_at or ""))
+    Dates use ISO-8601 or YYYY-MM-DD per NewsAPI.
+    """
 
-        if not title and not description:
-            continue
+    normalized_page_size = max(1, min(int(page_size), 100))
+    normalized_page = max(1, int(page))
 
-        articles.append(
-            NewsArticle(
-                article_id=article_id,
-                title=title,
-                description=description,
-                url=url_str,
-                source=source_name,
-                published_at=published_at,
-            )
+    if limit is None:
+        return _request_everything_page(
+            api_key=api_key,
+            query=query,
+            from_date=from_date,
+            to_date=to_date,
+            language=language,
+            sort_by=sort_by,
+            page_size=normalized_page_size,
+            page=normalized_page,
+            timeout_seconds=timeout_seconds,
         )
+
+    target_limit = max(1, int(limit))
+    articles: list[NewsArticle] = []
+    seen: set[str] = set()
+    next_page = normalized_page
+
+    while len(articles) < target_limit:
+        remaining = target_limit - len(articles)
+        request_page_size = min(normalized_page_size, remaining)
+        page_articles = _request_everything_page(
+            api_key=api_key,
+            query=query,
+            from_date=from_date,
+            to_date=to_date,
+            language=language,
+            sort_by=sort_by,
+            page_size=request_page_size,
+            page=next_page,
+            timeout_seconds=timeout_seconds,
+        )
+
+        for article in page_articles:
+            dedupe_key = article.url or article.article_id
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            articles.append(article)
+            if len(articles) >= target_limit:
+                break
+
+        if len(page_articles) < request_page_size:
+            break
+        next_page += 1
 
     return articles

@@ -543,8 +543,11 @@ UI_HTML = """<!doctype html>
             ? `${source} - ${windowDays}-day lookback - as of ${asOf}`
             : `${source} - ${windowDays}-day lookback`;
         } catch (error) {
-          renderError(error.message || "The request failed.");
-          statusLine.textContent = "Try again.";
+          renderError(
+            error.message ||
+            "The analysis could not load. Check your connection or restart the server, then try again."
+          );
+          statusLine.textContent = "Check the connection and try again.";
         } finally {
           submitButton.disabled = false;
         }

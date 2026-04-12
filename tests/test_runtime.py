@@ -157,3 +157,25 @@ class TestRuntime(unittest.TestCase):
                     use_cache=False,
                 )
             )
+
+    def test_run_analysis_newsapi_passes_max_articles_limit(self) -> None:
+        with patch(
+            "stock_sentiment.runtime.fetch_everything",
+            return_value=[_fake_article()],
+        ) as mock_fetch_everything, patch(
+            "stock_sentiment.runtime.analyze_with_cache",
+            return_value=_fake_summary(include_reason=False),
+        ):
+            result = run_analysis(
+                AnalysisRequest(
+                    ticker="TSLA",
+                    source="newsapi",
+                    newsapi_key="y",
+                    openai_api_key="x",
+                    max_articles=175,
+                    use_cache=False,
+                )
+            )
+
+        self.assertEqual(result.source, "newsapi")
+        self.assertEqual(mock_fetch_everything.call_args.kwargs["limit"], 175)

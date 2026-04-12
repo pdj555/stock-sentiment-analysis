@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from threading import Thread
 from urllib.request import Request, urlopen
 from wsgiref.simple_server import WSGIRequestHandler, make_server
+from unittest.mock import patch
 
 from app import app as deployed_app
 from stock_sentiment.errors import ConfigurationError
@@ -174,7 +175,7 @@ class TestUi(unittest.TestCase):
     def test_wsgi_app_surfaces_unexpected_error_with_next_step(self) -> None:
         app = create_app(lambda ticker: (_ for _ in ()).throw(RuntimeError("boom")))
 
-        with io.StringIO() as err, unittest.mock.patch("sys.stderr", err):
+        with io.StringIO() as err, patch("sys.stderr", err):
             status, _, payload = _run_app(
                 app,
                 method="POST",

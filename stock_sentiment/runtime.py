@@ -144,6 +144,7 @@ def _fetch_articles(
     from_datetime: datetime,
     source_requested: SourceName,
     newsapi_key: str,
+    max_articles: int,
     warn: WarnCallback,
 ) -> tuple[SourceName, list[NewsArticle]]:
     source_used: SourceName = source_requested
@@ -161,6 +162,7 @@ def _fetch_articles(
                 query=query,
                 from_date=from_datetime.date().isoformat(),
                 page_size=100,
+                limit=max(1, max_articles),
             )
         except RemoteApiError as e:
             if source_requested != "auto":
@@ -230,6 +232,7 @@ def run_analysis(
         from_datetime=from_datetime,
         source_requested=source_requested,
         newsapi_key=newsapi_key,
+        max_articles=max_articles,
         warn=warn_callback,
     )
     unique_articles = _unique_articles(articles, max_articles)
