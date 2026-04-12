@@ -73,8 +73,47 @@ def default_cache_dir() -> Path:
     return Path.home() / ".cache" / "stock_sentiment"
 
 
-def normalize_ticker(raw_ticker: str) -> str:
-    ticker = str(raw_ticker or "").strip().upper()
+def _require_string(value: object, *, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ConfigurationError(f"{field_name} must be a string.")
+    return value
+
+
+def _validated_int(value: object, *, field_name: str, minimum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise ConfigurationError(f"{field_name} must be an integer >= {minimum}.")
+    return value
+
+
+def _validated_float(
+    value: object,
+    *,
+    field_name: str,
+    minimum: float,
+    inclusive: bool,
+) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        comparator = ">=" if inclusive else ">"
+        raise ConfigurationError(f"{field_name} must be a number {comparator} {minimum:g}.")
+    normalized = float(value)
+    if inclusive:
+        valid = normalized >= minimum
+    else:
+        valid = normalized > minimum
+    if not valid:
+        comparator = ">=" if inclusive else ">"
+        raise ConfigurationError(f"{field_name} must be a number {comparator} {minimum:g}.")
+    return normalized
+
+
+def _validated_bool(value: object, *, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ConfigurationError(f"{field_name} must be a boolean.")
+    return value
+
+
+def normalize_ticker(raw_ticker: object) -> str:
+    ticker = _require_string(raw_ticker, field_name="Ticker").strip().upper()
     if not ticker:
         raise ConfigurationError("Ticker cannot be empty.")
     if any(ch.isspace() for ch in ticker):
@@ -84,8 +123,10 @@ def normalize_ticker(raw_ticker: str) -> str:
     return ticker
 
 
-def _normalize_query(raw_query: str | None, *, ticker: str) -> str:
-    query = (raw_query or ticker).strip()
+def _normalize_query(raw_query: object | None, *, ticker: str) -> str:
+    if raw_query is None:
+        return ticker
+    query = _require_string(raw_query, field_name="Query").strip()
     if not query:
         raise ConfigurationError("Query cannot be empty.")
     return query
@@ -210,26 +251,40 @@ def run_analysis(
     ticker = normalize_ticker(request.ticker)
     query = _normalize_query(request.query, ticker=ticker)
 
-    lookback_days = int(request.lookback_days)
-    if lookback_days < 1:
-        raise ConfigurationError("Lookback days must be >= 1.")
+    lookback_days = _validated_int(
+        request.lookback_days,
+        field_name="Lookback days",
+        minimum=1,
+    )
 
-    max_articles = int(request.max_articles)
-    if max_articles < 1:
-        raise ConfigurationError("Max articles must be >= 1.")
+    max_articles = _validated_int(
+        request.max_articles,
+        field_name="Max articles",
+        minimum=1,
+    )
 
-    half_life_hours = float(request.half_life_hours)
-    if half_life_hours <= 0:
-        raise ConfigurationError("Half-life hours must be > 0.")
+    half_life_hours = _validated_float(
+        request.half_life_hours,
+        field_name="Half-life hours",
+        minimum=0.0,
+        inclusive=False,
+    )
 
     source_requested = request.source
-    if source_requested not in {"auto", "newsapi", "google-rss"}:
+    if not isinstance(source_requested, str) or source_requested not in {
+        "auto",
+        "newsapi",
+        "google-rss",
+    }:
         raise ConfigurationError("Source must be auto, newsapi, or google-rss.")
 
-    use_cache = bool(request.use_cache)
-    cache_ttl_hours = float(request.cache_ttl_hours)
-    if use_cache and cache_ttl_hours < 0:
-        raise ConfigurationError("Cache TTL hours must be >= 0.")
+    use_cache = _validated_bool(request.use_cache, field_name="Use cache")
+    cache_ttl_hours = _validated_float(
+        request.cache_ttl_hours,
+        field_name="Cache TTL hours",
+        minimum=0.0,
+        inclusive=True,
+    )
 
     openai = _validated_openai_config(request)
     newsapi_key = str(request.newsapi_key or "").strip()

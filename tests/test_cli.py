@@ -202,6 +202,16 @@ class TestCli(unittest.TestCase):
             ):
                 cli.main(["analyze", "TSLA", "--include-reasons", "--no-cache"])
 
+    def test_cli_rejects_include_articles_without_json(self) -> None:
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "x"}, clear=False), patch(
+            "stock_sentiment.cli.load_dotenv"
+        ):
+            with self.assertRaisesRegex(
+                ConfigurationError,
+                r"--include-articles requires --format json\.",
+            ):
+                cli.main(["analyze", "TSLA", "--include-articles", "--no-cache"])
+
     def test_cli_env_file_sets_parser_backed_defaults(self) -> None:
         out = io.StringIO()
         err = io.StringIO()

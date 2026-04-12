@@ -46,6 +46,54 @@ def _fake_summary(*, include_reason: bool) -> SentimentSummary:
 
 
 class TestRuntime(unittest.TestCase):
+    def test_run_analysis_requires_string_ticker(self) -> None:
+        with self.assertRaisesRegex(ConfigurationError, r"Ticker must be a string\."):
+            run_analysis(
+                AnalysisRequest(
+                    ticker=123,  # type: ignore[arg-type]
+                    openai_api_key="x",
+                    use_cache=False,
+                )
+            )
+
+    def test_run_analysis_requires_string_query(self) -> None:
+        with self.assertRaisesRegex(ConfigurationError, r"Query must be a string\."):
+            run_analysis(
+                AnalysisRequest(
+                    ticker="TSLA",
+                    query=123,  # type: ignore[arg-type]
+                    openai_api_key="x",
+                    use_cache=False,
+                )
+            )
+
+    def test_run_analysis_rejects_invalid_lookback_type(self) -> None:
+        with self.assertRaisesRegex(
+            ConfigurationError,
+            r"Lookback days must be an integer >= 1\.",
+        ):
+            run_analysis(
+                AnalysisRequest(
+                    ticker="TSLA",
+                    lookback_days="3",  # type: ignore[arg-type]
+                    openai_api_key="x",
+                    use_cache=False,
+                )
+            )
+
+    def test_run_analysis_requires_boolean_use_cache(self) -> None:
+        with self.assertRaisesRegex(
+            ConfigurationError,
+            r"Use cache must be a boolean\.",
+        ):
+            run_analysis(
+                AnalysisRequest(
+                    ticker="TSLA",
+                    openai_api_key="x",
+                    use_cache="false",  # type: ignore[arg-type]
+                )
+            )
+
     def test_run_analysis_auto_falls_back_to_google_rss_on_newsapi_error(self) -> None:
         warnings: list[str] = []
 

@@ -1,8 +1,29 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
+from stock_sentiment.errors import ConfigurationError
 from stock_sentiment.http import http_request_json
+
+
+def _validated_temperature(value: object | None) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ConfigurationError("Temperature must be a number.")
+    normalized = float(value)
+    if not math.isfinite(normalized):
+        raise ConfigurationError("Temperature must be a number.")
+    return normalized
+
+
+def _validated_max_output_tokens(value: object | None) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ConfigurationError("Max output tokens must be an integer >= 1.")
+    return value
 
 
 def create_response(
@@ -21,10 +42,12 @@ def create_response(
     body: dict[str, Any] = {"model": model, "input": input_payload}
     if response_format is not None:
         body["response_format"] = response_format
-    if temperature is not None:
-        body["temperature"] = float(temperature)
-    if max_output_tokens is not None:
-        body["max_output_tokens"] = int(max_output_tokens)
+    validated_temperature = _validated_temperature(temperature)
+    if validated_temperature is not None:
+        body["temperature"] = validated_temperature
+    validated_max_output_tokens = _validated_max_output_tokens(max_output_tokens)
+    if validated_max_output_tokens is not None:
+        body["max_output_tokens"] = validated_max_output_tokens
 
     return http_request_json(
         method="POST",

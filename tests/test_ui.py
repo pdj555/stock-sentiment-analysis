@@ -210,7 +210,66 @@ class TestUi(unittest.TestCase):
         )
 
         self.assertEqual(status, "400 Bad Request")
-        self.assertEqual(payload["error"]["message"], "Ticker must be a string.")
+        self.assertEqual(
+            payload["error"]["message"],
+            'Ticker must be a string like "TSLA".',
+        )
+
+    def test_wsgi_app_rejects_invalid_json_with_example(self) -> None:
+        app = create_app(lambda ticker: _fake_result())
+        raw_body = b"{not-json"
+        status_holder: dict[str, object] = {}
+
+        def start_response(status: str, headers: list[tuple[str, str]]) -> None:
+            status_holder["status"] = status
+            status_holder["headers"] = headers
+
+        body = b"".join(
+            app(
+                {
+                    "REQUEST_METHOD": "POST",
+                    "PATH_INFO": "/api/analyze",
+                    "CONTENT_LENGTH": str(len(raw_body)),
+                    "wsgi.input": io.BytesIO(raw_body),
+                },
+                start_response,
+            )
+        )
+        payload = json.loads(body.decode("utf-8"))
+
+        self.assertEqual(status_holder["status"], "400 Bad Request")
+        self.assertEqual(
+            payload["error"]["message"],
+            'Request body must be valid JSON like {"ticker":"TSLA"}.',
+        )
+
+    def test_wsgi_app_rejects_non_object_json_with_example(self) -> None:
+        app = create_app(lambda ticker: _fake_result())
+        raw_body = b"[]"
+        status_holder: dict[str, object] = {}
+
+        def start_response(status: str, headers: list[tuple[str, str]]) -> None:
+            status_holder["status"] = status
+            status_holder["headers"] = headers
+
+        body = b"".join(
+            app(
+                {
+                    "REQUEST_METHOD": "POST",
+                    "PATH_INFO": "/api/analyze",
+                    "CONTENT_LENGTH": str(len(raw_body)),
+                    "wsgi.input": io.BytesIO(raw_body),
+                },
+                start_response,
+            )
+        )
+        payload = json.loads(body.decode("utf-8"))
+
+        self.assertEqual(status_holder["status"], "400 Bad Request")
+        self.assertEqual(
+            payload["error"]["message"],
+            'Request body must be a JSON object like {"ticker":"TSLA"}.',
+        )
 
     def test_wsgi_app_surfaces_unexpected_error_with_next_step(self) -> None:
         app = create_app(lambda ticker: (_ for _ in ()).throw(RuntimeError("boom")))

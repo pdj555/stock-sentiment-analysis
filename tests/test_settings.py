@@ -19,6 +19,6 @@ class TestSettings(unittest.TestCase):
         with patch.dict("os.environ", {}, clear=True):
             with self.assertRaisesRegex(
                 ConfigurationError,
-                r"Missing required environment variable: OPENAI_API_KEY",
+                r"Missing OPENAI_API_KEY\. Set it in your shell or \./\.env, then try again\.",
             ):
                 settings.require_env("OPENAI_API_KEY")

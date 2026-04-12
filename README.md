@@ -113,7 +113,7 @@ Notes:
 - In `--source auto`, if NewsAPI fails the CLI falls back to Google News RSS.
 - If Google News RSS fails with a certificate or TLS error, check your local trust store or set `NEWSAPI_KEY` so `--source auto` can prefer NewsAPI.
 - `OPENAI_API_KEY` is required unless all needed per-article classifications are already cached.
-- Add `--include-articles` to embed article metadata in JSON output.
+- Use `--include-articles` with `--format json` to embed article metadata.
 - Use `--include-reasons` with `--format json` or `--verbose`.
 - Add `--verbose` to print per-article sentiment details in text mode.
 - OpenAI results are cached locally by default (see `--cache-dir`, `--no-cache`, `--cache-ttl-hours`).

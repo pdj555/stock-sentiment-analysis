@@ -739,10 +739,14 @@ def _read_json_body(environ: dict[str, object]) -> dict[str, object]:
     try:
         parsed = json.loads(raw_body.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
-        raise ConfigurationError("Request body must be valid JSON.") from e
+        raise ConfigurationError(
+            'Request body must be valid JSON like {"ticker":"TSLA"}.'
+        ) from e
 
     if not isinstance(parsed, dict):
-        raise ConfigurationError("Request body must be a JSON object.")
+        raise ConfigurationError(
+            'Request body must be a JSON object like {"ticker":"TSLA"}.'
+        )
     return parsed
 
 
@@ -779,7 +783,7 @@ def create_app(
                 body = _read_json_body(environ)
                 raw_ticker = body.get("ticker", "")
                 if not isinstance(raw_ticker, str):
-                    raise ConfigurationError("Ticker must be a string.")
+                    raise ConfigurationError('Ticker must be a string like "TSLA".')
                 ticker = raw_ticker.strip()
                 result = analyze_func(ticker)
                 return _json_response(

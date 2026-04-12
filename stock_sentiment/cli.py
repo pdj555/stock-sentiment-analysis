@@ -258,6 +258,8 @@ def main(argv: list[str] | None = None) -> int:
             raise ConfigurationError(
                 "--include-reasons requires --verbose or --format json."
             )
+        if args.include_articles and args.format != "json":
+            raise ConfigurationError("--include-articles requires --format json.")
         result = run_analysis(
             AnalysisRequest(
                 ticker=args.ticker,

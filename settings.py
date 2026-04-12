@@ -57,7 +57,9 @@ def require_env(name: str) -> str:
 
     value = os.environ.get(name, "").strip()
     if not value:
-        raise ConfigurationError(f"Missing required environment variable: {name}")
+        raise ConfigurationError(
+            f"Missing {name}. Set it in your shell or ./.env, then try again."
+        )
     return value
 
 
