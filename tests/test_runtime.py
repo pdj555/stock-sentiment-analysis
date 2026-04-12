@@ -70,6 +70,7 @@ class TestRuntime(unittest.TestCase):
             )
 
         self.assertEqual(result.source, "google-rss")
+        self.assertEqual(result.article_cap, 25)
         self.assertTrue(
             any("Trying Google News RSS instead." in message for message in warnings)
         )
@@ -91,6 +92,7 @@ class TestRuntime(unittest.TestCase):
             )
 
         self.assertEqual(result.summary.ticker, "TSLA")
+        self.assertEqual(result.article_cap, 25)
 
     def test_run_analysis_google_rss_error_includes_next_step(self) -> None:
         with patch(
@@ -141,6 +143,7 @@ class TestRuntime(unittest.TestCase):
             )
 
         self.assertEqual(result.summary.ticker, "TSLA")
+        self.assertEqual(result.article_cap, 25)
         self.assertTrue(any("Cache unavailable" in message for message in warnings))
         self.assertTrue(any("OpenAI calls may repeat" in message for message in warnings))
 
@@ -178,4 +181,5 @@ class TestRuntime(unittest.TestCase):
             )
 
         self.assertEqual(result.source, "newsapi")
+        self.assertEqual(result.article_cap, 175)
         self.assertEqual(mock_fetch_everything.call_args.kwargs["limit"], 175)

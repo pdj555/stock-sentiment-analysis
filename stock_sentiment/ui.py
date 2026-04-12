@@ -12,6 +12,7 @@ from stock_sentiment.runtime import (
     AnalysisRequest,
     AnalysisRunResult,
     default_cache_dir,
+    display_source_name,
     run_analysis,
 )
 
@@ -537,11 +538,17 @@ UI_HTML = """<!doctype html>
           renderArticles(payload.articles || []);
 
           const asOf = formatTime(payload.summary.as_of);
-          const source = payload.summary.source || "source unavailable";
+          const sourceLabel =
+            payload.summary.source_label || payload.summary.source || "source unavailable";
           const windowDays = payload.summary.lookback_days || 3;
+          const articleCap = Number(payload.summary.article_cap || 0);
+          const analyzed = Number(payload.summary.articles_analyzed || 0);
+          const coverage = articleCap > 0
+            ? ` - ${analyzed} of ${articleCap} articles analyzed`
+            : "";
           statusLine.textContent = asOf
-            ? `${source} - ${windowDays}-day lookback - as of ${asOf}`
-            : `${source} - ${windowDays}-day lookback`;
+            ? `${sourceLabel} - ${windowDays}-day lookback${coverage} - as of ${asOf}`
+            : `${sourceLabel} - ${windowDays}-day lookback${coverage}`;
         } catch (error) {
           renderError(
             error.message ||
@@ -579,11 +586,7 @@ UI_HTML = """<!doctype html>
 
 
 def _display_source_name(source: str) -> str:
-    if source == "newsapi":
-        return "NewsAPI"
-    if source == "google-rss":
-        return "Google News RSS"
-    return source
+    return display_source_name(source)
 
 
 def run_ui_analysis(ticker: str) -> AnalysisRunResult:
@@ -648,8 +651,10 @@ def _build_response_payload(result: AnalysisRunResult) -> dict[str, object]:
             "confidence": result.summary.confidence,
             "articles_analyzed": result.summary.articles_analyzed,
             "as_of": result.summary.as_of.isoformat(),
-            "source": _display_source_name(result.source),
+            "source": result.source,
+            "source_label": _display_source_name(result.source),
             "lookback_days": result.lookback_days,
+            "article_cap": result.article_cap,
         },
         "articles": articles_payload,
     }

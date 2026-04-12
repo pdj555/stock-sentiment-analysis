@@ -54,6 +54,7 @@ def _fake_result() -> AnalysisRunResult:
         articles=[article],
         source="google-rss",
         lookback_days=3,
+        article_cap=18,
     )
 
 
@@ -123,7 +124,9 @@ class TestUi(unittest.TestCase):
 
         self.assertEqual(payload["summary"]["ticker"], "TSLA")
         self.assertEqual(payload["summary"]["signal"], "buy")
-        self.assertEqual(payload["summary"]["source"], "Google News RSS")
+        self.assertEqual(payload["summary"]["source"], "google-rss")
+        self.assertEqual(payload["summary"]["source_label"], "Google News RSS")
+        self.assertEqual(payload["summary"]["article_cap"], 18)
         self.assertEqual(payload["articles"][0]["reason"], "Demand outlook improved.")
         self.assertEqual(payload["articles"][0]["label"], "positive")
 
@@ -218,7 +221,9 @@ class TestUi(unittest.TestCase):
                 payload = json.load(response)
 
             self.assertEqual(payload["summary"]["ticker"], "TSLA")
-            self.assertEqual(payload["summary"]["source"], "Google News RSS")
+            self.assertEqual(payload["summary"]["source"], "google-rss")
+            self.assertEqual(payload["summary"]["source_label"], "Google News RSS")
+            self.assertEqual(payload["summary"]["article_cap"], 18)
         finally:
             server.shutdown()
             thread.join(timeout=2)

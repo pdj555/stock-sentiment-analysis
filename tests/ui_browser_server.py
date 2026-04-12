@@ -42,6 +42,7 @@ def _fake_result(ticker: str) -> AnalysisRunResult:
         articles=[article],
         source="google-rss",
         lookback_days=3,
+        article_cap=18,
     )
 
 

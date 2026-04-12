@@ -18,18 +18,31 @@ from stock_sentiment.errors import (
     RemoteApiError,
     StockSentimentError,
 )
-from stock_sentiment.runtime import AnalysisRequest, default_cache_dir, run_analysis
+from stock_sentiment.runtime import (
+    AnalysisRequest,
+    default_cache_dir,
+    display_source_name,
+    run_analysis,
+)
 from stock_sentiment.types import SentimentSummary
 
 
-def _format_text(summary: SentimentSummary, *, source: str, lookback_days: int) -> str:
+def _format_text(
+    summary: SentimentSummary,
+    *,
+    source_label: str,
+    lookback_days: int,
+    article_cap: int,
+) -> str:
     score = f"{summary.score:+.3f}"
     conf = f"{summary.confidence:.2f}"
     as_of = summary.as_of.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+    article_word = "article" if summary.articles_analyzed == 1 else "articles"
     return (
-        f"{summary.ticker} sentiment {score} ({summary.label}, confidence {conf}) "
-        f"signal={summary.signal} articles={summary.articles_analyzed} "
-        f"source={source} lookback_days={lookback_days} as_of={as_of}"
+        f"{summary.ticker} sentiment {score} ({summary.label}, confidence {conf}), "
+        f"signal {summary.signal}, from {summary.articles_analyzed} {article_word} "
+        f"out of a {article_cap}-article cap using {source_label} "
+        f"over a {lookback_days}-day lookback as of {as_of}"
     )
 
 
@@ -258,19 +271,28 @@ def main(argv: list[str] | None = None) -> int:
         )
         summary = result.summary
         source_used = result.source
+        source_label = display_source_name(source_used)
         unique = result.articles
         lookback_days = result.lookback_days
+        article_cap = result.article_cap
 
         if args.format == "json":
             payload = summary.to_dict(include_reasons=bool(args.include_reasons))
             payload["source"] = source_used
+            payload["source_label"] = source_label
             payload["lookback_days"] = lookback_days
+            payload["article_cap"] = article_cap
             if args.include_articles:
                 payload["articles"] = [a.to_dict() for a in unique]
             print(json.dumps(payload, indent=2, ensure_ascii=False))
         else:
             print(
-                _format_text(summary, source=source_used, lookback_days=lookback_days)
+                _format_text(
+                    summary,
+                    source_label=source_label,
+                    lookback_days=lookback_days,
+                    article_cap=article_cap,
+                )
             )
             if args.verbose:
                 article_by_id = {a.article_id: a for a in unique}

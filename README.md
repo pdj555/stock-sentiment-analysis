@@ -116,7 +116,7 @@ Notes:
 - Add `--include-articles` to embed article metadata in JSON output.
 - Add `--verbose` to print per-article sentiment details in text mode.
 - OpenAI results are cached locally by default (see `--cache-dir`, `--no-cache`, `--cache-ttl-hours`).
-- JSON output includes `source` and `lookback_days` fields for downstream systems.
+- JSON output includes `source`, `source_label`, `lookback_days`, and `article_cap` fields for downstream systems.
 
 Disclaimer: This tool is for informational purposes only and is not financial advice.
 

@@ -69,6 +69,7 @@ test('local UI happy path renders analyzed result', async ({ page }) => {
     await expect(page.locator('#summary')).toContainText('buy');
     await expect(page.locator('#status-line')).toContainText('Google News RSS');
     await expect(page.locator('#status-line')).toContainText('3-day lookback');
+    await expect(page.locator('#status-line')).toContainText('1 of 18 articles analyzed');
     await expect(page.locator('.article-title')).toContainText('Example article for TSLA');
     await expect(page.locator('.article-reason')).toContainText('Demand outlook improved.');
     await expect(page.locator('.badge')).toHaveText('positive');

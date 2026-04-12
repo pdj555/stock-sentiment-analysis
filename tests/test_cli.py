@@ -57,19 +57,23 @@ def _fake_result(*, include_reason: bool, source: str = "google-rss") -> Analysi
         articles=[_fake_article()],
         source=source,
         lookback_days=3,
+        article_cap=25,
     )
 
 
 class TestCli(unittest.TestCase):
-    def test_format_text_uses_lookback_days_name(self) -> None:
+    def test_format_text_reads_like_user_facing_summary(self) -> None:
         rendered = cli._format_text(
             _fake_summary(include_reason=False),
-            source="google-rss",
+            source_label="Google News RSS",
             lookback_days=3,
+            article_cap=25,
         )
 
-        self.assertIn("lookback_days=3", rendered)
-        self.assertNotIn("window=3d", rendered)
+        self.assertIn("Google News RSS", rendered)
+        self.assertIn("3-day lookback", rendered)
+        self.assertIn("25-article cap", rendered)
+        self.assertNotIn("lookback_days=", rendered)
 
     def test_module_entrypoint_help_for_analyze_command(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
@@ -131,7 +135,9 @@ class TestCli(unittest.TestCase):
         self.assertEqual(code, 0)
         payload = json.loads(out.getvalue())
         self.assertEqual(payload["source"], "google-rss")
+        self.assertEqual(payload["source_label"], "Google News RSS")
         self.assertEqual(payload["lookback_days"], 3)
+        self.assertEqual(payload["article_cap"], 25)
         self.assertNotIn("reason", payload["results"][0])
         self.assertFalse(mock_run_analysis.call_args.args[0].include_reasons)
 

@@ -45,10 +45,19 @@ class AnalysisRunResult:
     articles: list[NewsArticle]
     source: SourceName
     lookback_days: int
+    article_cap: int
 
 
 def _default_warn(message: str) -> None:
     print(message, file=sys.stderr)
+
+
+def display_source_name(source: str) -> str:
+    if source == "newsapi":
+        return "NewsAPI"
+    if source == "google-rss":
+        return "Google News RSS"
+    return source
 
 
 def default_cache_dir() -> Path:
@@ -279,4 +288,5 @@ def run_analysis(
         articles=unique_articles,
         source=source_used,
         lookback_days=lookback_days,
+        article_cap=max_articles,
     )
