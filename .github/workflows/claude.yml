@@ -2,13 +2,13 @@ name: Claude
 
 on:
   issue_comment:
-    types: [created]
+    types: [created, edited]
   pull_request_review_comment:
-    types: [created]
+    types: [created, edited]
   issues:
-    types: [opened, assigned]
+    types: [opened, edited, assigned]
   pull_request_review:
-    types: [submitted]
+    types: [submitted, edited]
 
 concurrency:
   group: claude-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
@@ -40,9 +40,8 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: |
-            --model claude-opus-4-6
-            --max-turns 30
+          claude_args: '--model claude-opus-4-6 --max-turns 30'
+          track_progress: "true"
           prompt: |
             You are the revenue engine for this repository. Nothing else matters. Profit. Income.
 
