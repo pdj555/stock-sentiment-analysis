@@ -39,7 +39,8 @@ def _argv_list(argv: list[str] | None) -> list[str]:
 
 def _resolve_env_file(argv: list[str]) -> tuple[Path, bool]:
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--env-file", "--dotenv", dest="env_file", type=Path)
+    parser.add_argument("--env-file", dest="env_file", type=Path, metavar="FILE")
+    parser.add_argument("--dotenv", dest="env_file", type=Path, help=argparse.SUPPRESS)
     parsed, _ = parser.parse_known_args(argv)
     env_file = parsed.env_file or Path(".env")
     return env_file, parsed.env_file is not None
@@ -157,11 +158,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     advanced.add_argument(
         "--env-file",
+        dest="env_file",
+        type=Path,
+        metavar="FILE",
+        default=Path(".env"),
+        help="Read env vars from FILE instead of ./.env",
+    )
+    advanced.add_argument(
         "--dotenv",
         dest="env_file",
         type=Path,
-        default=Path(".env"),
-        help="Read env vars from FILE instead of ./.env",
+        help=argparse.SUPPRESS,
     )
 
     ui = sub.add_parser(
@@ -191,10 +198,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ui.add_argument(
         "--env-file",
+        dest="env_file",
+        type=Path,
+        metavar="FILE",
+        default=Path(".env"),
+        help=argparse.SUPPRESS,
+    )
+    ui.add_argument(
         "--dotenv",
         dest="env_file",
         type=Path,
-        default=Path(".env"),
         help=argparse.SUPPRESS,
     )
 

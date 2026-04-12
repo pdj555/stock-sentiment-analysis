@@ -171,6 +171,34 @@ class TestUi(unittest.TestCase):
         self.assertEqual(status, "400 Bad Request")
         self.assertEqual(payload["error"]["message"], "Ticker cannot be empty.")
 
+    def test_wsgi_app_surfaces_unexpected_error_with_next_step(self) -> None:
+        app = create_app(lambda ticker: (_ for _ in ()).throw(RuntimeError("boom")))
+
+        with io.StringIO() as err, unittest.mock.patch("sys.stderr", err):
+            status, _, payload = _run_app(
+                app,
+                method="POST",
+                path="/api/analyze",
+                payload={"ticker": "TSLA"},
+            )
+
+        self.assertEqual(status, "500 Internal Server Error")
+        self.assertEqual(
+            payload["error"]["message"],
+            "Analysis failed unexpectedly. Try again in a moment or check the server logs.",
+        )
+
+    def test_wsgi_app_404_includes_route_guidance(self) -> None:
+        app = create_app(lambda ticker: _fake_result())
+
+        status, _, payload = _run_app(app, method="GET", path="/missing")
+
+        self.assertEqual(status, "404 Not Found")
+        self.assertEqual(
+            payload["error"]["message"],
+            "That page was not found. Open / in a browser or POST JSON to /api/analyze.",
+        )
+
     def test_http_server_serves_health_and_analysis(self) -> None:
         app = create_app(lambda ticker: _fake_result())
         server, thread, base_url = _serve_http(app)

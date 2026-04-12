@@ -13,7 +13,7 @@ This is a stdlib-only Python CLI that fetches recent news for a stock ticker and
 - No third-party runtime dependencies
 
 ### Environment Configuration
-A `.env` file is optional in the current working directory. The CLI loads `./.env` by default, or `--env-file PATH` to use a different file, without overwriting existing environment variables. In this repo that usually means the repository root.
+A `.env` file is optional in the current working directory. The CLI loads `./.env` by default, or `--env-file FILE` to use a different file, without overwriting existing environment variables. In this repo that usually means the repository root.
 
 Required:
 ```
@@ -22,7 +22,7 @@ OPENAI_API_KEY=your_api_key
 
 Optional:
 ```
-NEWSAPI_KEY=your_newsapi_key  # only for --source newsapi
+NEWSAPI_KEY=your_newsapi_key  # for --source newsapi, and lets --source auto prefer NewsAPI
 OPENAI_MODEL=gpt-5-nano-2025-08-07
 OPENAI_BASE_URL=https://api.openai.com/v1
 ```

@@ -88,7 +88,8 @@ class TestCli(unittest.TestCase):
             "Search phrase used to find articles; defaults to",
             result.stdout,
         )
-        self.assertIn("--env-file ENV_FILE", result.stdout)
+        self.assertIn("--env-file FILE", result.stdout)
+        self.assertNotIn("--dotenv", result.stdout)
 
     def test_module_entrypoint_help_for_ui_command(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
@@ -180,6 +181,38 @@ class TestCli(unittest.TestCase):
 
         self.assertEqual(code, 0)
         self.assertEqual(mock_run_analysis.call_args.args[0].openai_model, "from-env-file")
+
+    def test_cli_dotenv_alias_still_sets_parser_backed_defaults(self) -> None:
+        out = io.StringIO()
+        err = io.StringIO()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / "legacy.env"
+            env_path.write_text(
+                "OPENAI_API_KEY=x\nOPENAI_MODEL=from-legacy-alias\n",
+                encoding="utf-8",
+            )
+
+            with patch.dict(os.environ, {}, clear=True), patch(
+                "stock_sentiment.cli.run_analysis",
+                return_value=_fake_result(include_reason=False),
+            ) as mock_run_analysis:
+                with redirect_stdout(out), redirect_stderr(err):
+                    code = cli.main(
+                        [
+                            "analyze",
+                            "TSLA",
+                            "--dotenv",
+                            str(env_path),
+                            "--no-cache",
+                        ]
+                    )
+
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            mock_run_analysis.call_args.args[0].openai_model,
+            "from-legacy-alias",
+        )
 
     def test_cli_rejects_missing_explicit_env_file(self) -> None:
         with self.assertRaisesRegex(ConfigurationError, r"Env file not found:"):

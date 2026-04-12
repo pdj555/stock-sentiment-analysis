@@ -125,3 +125,11 @@ Disclaimer: This tool is for informational purposes only and is not financial ad
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
+
+Optional browser smoke test:
+
+```bash
+npm install
+npx playwright install chromium
+npx playwright test tests/test_ui_browser.spec.js --reporter=line --output=output/playwright/test-results
+```

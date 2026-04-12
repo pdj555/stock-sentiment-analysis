@@ -540,8 +540,8 @@ UI_HTML = """<!doctype html>
           const source = payload.summary.source || "source unavailable";
           const windowDays = payload.summary.lookback_days || 3;
           statusLine.textContent = asOf
-            ? `${source} - ${windowDays} day window - as of ${asOf}`
-            : `${source} - ${windowDays} day window`;
+            ? `${source} - ${windowDays}-day lookback - as of ${asOf}`
+            : `${source} - ${windowDays}-day lookback`;
         } catch (error) {
           renderError(error.message || "The request failed.");
           statusLine.textContent = "Try again.";
@@ -778,7 +778,10 @@ def create_app(
                     status="500 Internal Server Error",
                     payload={
                         "error": {
-                            "message": "The request failed. Try again in a moment."
+                            "message": (
+                                "Analysis failed unexpectedly. "
+                                "Try again in a moment or check the server logs."
+                            )
                         }
                     },
                 )
@@ -786,7 +789,14 @@ def create_app(
         return _json_response(
             start_response,
             status="404 Not Found",
-            payload={"error": {"message": "That page was not found."}},
+            payload={
+                "error": {
+                    "message": (
+                        "That page was not found. "
+                        "Open / in a browser or POST JSON to /api/analyze."
+                    )
+                }
+            },
         )
 
     return application
