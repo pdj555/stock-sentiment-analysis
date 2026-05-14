@@ -4,6 +4,7 @@ import io
 import json
 import unittest
 from datetime import datetime, timezone
+from pathlib import Path
 from threading import Thread
 from urllib.request import Request, urlopen
 from wsgiref.simple_server import WSGIRequestHandler, make_server
@@ -18,6 +19,7 @@ from stock_sentiment.ui import (
     _build_response_payload,
     _display_source_name,
     create_app,
+    ui_cache_dir,
 )
 
 
@@ -157,6 +159,10 @@ class TestUi(unittest.TestCase):
     def test_display_source_name_hides_internal_slugs(self) -> None:
         self.assertEqual(_display_source_name("newsapi"), "NewsAPI")
         self.assertEqual(_display_source_name("google-rss"), "Google News RSS")
+
+    def test_ui_cache_dir_uses_tmp_on_vercel(self) -> None:
+        with patch.dict("os.environ", {"VERCEL": "1"}, clear=False):
+            self.assertEqual(ui_cache_dir(), Path("/tmp") / "stock_sentiment")
 
     def test_wsgi_app_serves_html_shell(self) -> None:
         app = create_app(lambda ticker: _fake_result())

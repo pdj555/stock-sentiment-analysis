@@ -69,7 +69,7 @@ fly deploy
 
 ### Vercel
 
-Vercel detects the root `app.py` entrypoint because it exports a top-level WSGI app named `app`. The included `vercel.json` excludes tests and local artifact folders from the Python bundle.
+Vercel detects the root `app.py` entrypoint because it exports a top-level WSGI app named `app`. The included `vercel.json` configures that Python function with a 60-second maximum duration and excludes tests, local artifact folders, and Node development dependencies from the bundle. On Vercel, the UI cache is written to `/tmp/stock_sentiment`, which is suitable for ephemeral serverless function storage.
 
 Typical flow from the repository root:
 

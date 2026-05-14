@@ -5,6 +5,7 @@ import os
 import sys
 import traceback
 from collections.abc import Callable, Iterable
+from pathlib import Path
 from wsgiref.simple_server import WSGIRequestHandler, make_server
 
 from stock_sentiment import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
@@ -604,6 +605,12 @@ def _display_source_name(source: str) -> str:
     return display_source_name(source)
 
 
+def ui_cache_dir() -> Path:
+    if os.environ.get("VERCEL"):
+        return Path("/tmp") / "stock_sentiment"
+    return default_cache_dir()
+
+
 def run_ui_analysis(ticker: str) -> AnalysisRunResult:
     try:
         return run_analysis(
@@ -621,7 +628,7 @@ def run_ui_analysis(ticker: str) -> AnalysisRunResult:
                 ),
                 use_cache=True,
                 cache_ttl_hours=UI_CACHE_TTL_SECONDS / 3600.0,
-                cache_dir=default_cache_dir(),
+                cache_dir=ui_cache_dir(),
                 include_reasons=True,
             ),
             warn=lambda message: print(message, file=sys.stderr),
