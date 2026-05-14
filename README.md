@@ -69,7 +69,7 @@ fly deploy
 
 ### Vercel
 
-Vercel detects the root `app.py` entrypoint because it exports a top-level WSGI app named `app`. The included `vercel.json` configures that Python function with a 60-second maximum duration and excludes tests, local artifact folders, and Node development dependencies from the bundle. On Vercel, the UI cache is written to `/tmp/stock_sentiment`, which is suitable for ephemeral serverless function storage.
+Vercel builds the project with the Python runtime: `requirements.txt` marks it as a Python app (no third-party runtime dependencies), and `.vercelignore` keeps the deployment a clean Python project so the Node development tooling does not shadow that detection. Vercel then serves the root `app.py` entrypoint because it exports a top-level WSGI app named `app`, and `vercel.json` gives that function a 60-second maximum duration. On Vercel, the UI cache is written to `/tmp/stock_sentiment`, which is suitable for ephemeral serverless function storage.
 
 Typical flow from the repository root:
 
