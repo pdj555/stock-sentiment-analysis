@@ -69,7 +69,7 @@ fly deploy
 
 ### Vercel
 
-Vercel builds the project with the Python runtime: `requirements.txt` marks it as a Python app (no third-party runtime dependencies), and `.vercelignore` keeps the deployment a clean Python project so the Node development tooling does not shadow that detection. Vercel then serves the root `app.py` entrypoint because it exports a top-level WSGI app named `app`, and `vercel.json` gives that function a 60-second maximum duration. On Vercel, the UI cache is written to `/tmp/stock_sentiment`, which is suitable for ephemeral serverless function storage.
+Vercel builds the project with the Python runtime: `requirements.txt` marks it as a Python app (no third-party runtime dependencies), and `.vercelignore` keeps the deployment a clean Python project so the Node development tooling does not shadow that detection. The Serverless Function lives at `api/index.py` (Vercel only treats files inside `api/` as functions); it re-exports the WSGI `app` from `stock_sentiment.ui`. The `rewrites` rule in `vercel.json` sends every path to that function, and the function is given a 60-second maximum duration. On Vercel, the UI cache is written to `/tmp/stock_sentiment`, which is suitable for ephemeral serverless function storage.
 
 Typical flow from the repository root:
 
