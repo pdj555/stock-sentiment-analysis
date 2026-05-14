@@ -13,14 +13,28 @@ python3 -m stock_sentiment analyze TSLA
 
 If you want `--source auto` to prefer NewsAPI before falling back to Google News RSS, also set `NEWSAPI_KEY`.
 
-Open the local UI:
+## Web UI
+
+The web interface is a Next.js app (this is what deploys to Vercel). It calls a
+Python Serverless Function at `api/analyze.py`, which reuses the same analysis
+engine as the CLI.
+
+```bash
+npm install
+npm run dev
+```
+
+Then visit `http://localhost:3000`. The Next.js dev server does not run the
+Python function, so the live analysis path is exercised on a Vercel deployment
+(or a preview) where `OPENAI_API_KEY` is configured.
+
+A dependency-free Python WSGI UI is also still available for local use:
 
 ```bash
 python3 -m stock_sentiment ui
 ```
 
 Set `OPENAI_API_KEY` first. Add `NEWSAPI_KEY` if you want auto to prefer NewsAPI.
-
 Then visit `http://127.0.0.1:8765`.
 
 ## Configuration
@@ -69,9 +83,23 @@ fly deploy
 
 ### Vercel
 
-Vercel builds the project with the Python runtime: `requirements.txt` marks it as a Python app (no third-party runtime dependencies), and `.vercelignore` keeps the deployment a clean Python project so the Node development tooling does not shadow that detection. The Serverless Function lives at `api/index.py` (Vercel only treats files inside `api/` as functions); it re-exports the WSGI `app` from `stock_sentiment.ui`. The `rewrites` rule in `vercel.json` sends every path to that function, and the function is given a 60-second maximum duration. On Vercel, the UI cache is written to `/tmp/stock_sentiment`, which is suitable for ephemeral serverless function storage.
+The Vercel deployment is a Next.js front end plus one Python Serverless
+Function:
 
-Typical flow from the repository root:
+- **Next.js app** (`app/`, `components/`, `lib/`) — Vercel detects it from
+  `package.json` and serves the UI.
+- **`api/analyze.py`** — Vercel maps files in `api/` to routes by path, so this
+  is served at `/api/analyze` with no rewrite rules. It reuses the WSGI `app`
+  from `stock_sentiment.ui`; `requirements.txt` marks it as a Python build (the
+  engine has no third-party runtime dependencies). `vercel.json` gives it a
+  60-second maximum duration, and on Vercel its cache is written to
+  `/tmp/stock_sentiment`.
+
+`.vercelignore` keeps the deployment lean — it ships the Next.js app, the
+`api/` function, and the `stock_sentiment` package it imports, and nothing else.
+
+Set `OPENAI_API_KEY` (and optionally `NEWSAPI_KEY`) in the Vercel project's
+environment variables. Typical flow from the repository root:
 
 ```bash
 vercel env add OPENAI_API_KEY preview

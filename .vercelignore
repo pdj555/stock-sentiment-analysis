@@ -1,18 +1,21 @@
-# Keep the Vercel deployment a clean, Python-only project so the platform
-# builds app.py with the Python runtime instead of mis-detecting Node.
+# Keep the Vercel deployment lean: ship the Next.js app, the api/ function,
+# and the stock_sentiment package it imports — nothing else.
 
-# Node tooling is only used locally for the Playwright browser test.
-package.json
-package-lock.json
+# Dependencies / build output (Vercel installs and builds these itself).
 node_modules/
+.next/
 
-# Tests and CI are not part of the deployed app.
-tests/
-.github/
-
-# Local container / editor / agent tooling.
+# Python CLI surface that is not used by the serverless function.
+app.py
+main.py
+settings.py
+pyproject.toml
 Dockerfile
 .dockerignore
+
+# Tests, CI, and local tooling.
+tests/
+.github/
 .idea/
 .agent/
 

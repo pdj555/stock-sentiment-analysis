@@ -15,3 +15,9 @@ output/
 .pytest_cache/
 .ruff_cache/
 .coverage
+
+# Next.js
+.next/
+next-env.d.ts
+*.tsbuildinfo
+.vercel
