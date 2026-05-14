@@ -31,8 +31,9 @@ def create_response(
     api_key: str,
     model: str,
     input_payload: Any,
+    text_format: dict[str, Any] | None = None,
     response_format: dict[str, Any] | None = None,
-    temperature: float | None = 0.2,
+    temperature: float | None = None,
     max_output_tokens: int | None = 800,
     base_url: str = "https://api.openai.com/v1",
     timeout_seconds: float = 45.0,
@@ -40,8 +41,11 @@ def create_response(
 ) -> dict[str, Any]:
     headers = {"authorization": f"Bearer {api_key}"}
     body: dict[str, Any] = {"model": model, "input": input_payload}
-    if response_format is not None:
-        body["response_format"] = response_format
+
+    output_format = text_format if text_format is not None else response_format
+    if output_format is not None:
+        body["text"] = {"format": output_format}
+
     validated_temperature = _validated_temperature(temperature)
     if validated_temperature is not None:
         body["temperature"] = validated_temperature

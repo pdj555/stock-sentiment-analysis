@@ -99,7 +99,7 @@ class OpenAISentimentConfig:
     api_key: str
     model: str = DEFAULT_OPENAI_MODEL
     base_url: str = DEFAULT_OPENAI_BASE_URL
-    temperature: float = 0.2
+    temperature: float | None = None
     max_output_tokens: int = 900
     timeout_seconds: float = 45.0
     max_retries: int = 6
@@ -162,7 +162,7 @@ def analyze_articles_with_openai(
         api_key=openai.api_key,
         model=openai.model,
         input_payload=input_payload,
-        response_format=_response_schema(include_reasons),
+        text_format=_response_schema(include_reasons),
         temperature=openai.temperature,
         max_output_tokens=openai.max_output_tokens,
         base_url=openai.base_url,
@@ -377,9 +377,23 @@ def analyze_with_cache(
 
     def cache_key(prompt_version: str, article_id: str) -> str:
         base_url = openai.base_url.rstrip("/")
-        temp = float(openai.temperature)
+        temp = (
+            "default"
+            if openai.temperature is None
+            else f"{float(openai.temperature):.6g}"
+        )
         max_tokens = int(openai.max_output_tokens)
-        return f"{prompt_version}:{base_url}:{openai.model}:{temp:.6g}:{max_tokens}:{ticker}:{article_id}"
+        return ":".join(
+            [
+                prompt_version,
+                base_url,
+                openai.model,
+                temp,
+                str(max_tokens),
+                ticker,
+                article_id,
+            ]
+        )
 
     def legacy_key(prompt_version: str, article_id: str) -> str:
         return f"{prompt_version}:{openai.model}:{ticker}:{article_id}"

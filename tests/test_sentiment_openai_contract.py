@@ -47,13 +47,19 @@ class TestSentimentOpenAIContract(unittest.TestCase):
             )
         }
 
-        with patch("stock_sentiment.sentiment.create_response", return_value=response):
+        with patch(
+            "stock_sentiment.sentiment.create_response",
+            return_value=response,
+        ) as mocked:
             batch = analyze_articles_with_openai(
                 ticker="TSLA",
                 articles=[_article("a1"), _article("a2")],
                 openai=OpenAISentimentConfig(api_key="test"),
                 include_reasons=True,
             )
+
+        self.assertIn("text_format", mocked.call_args.kwargs)
+        self.assertNotIn("response_format", mocked.call_args.kwargs)
 
         self.assertEqual(batch.missing_article_ids, ("a2",))
         self.assertEqual(batch.results[1].article_id, "a2")
