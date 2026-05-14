@@ -5,5 +5,11 @@
       "maxDuration": 60,
       "excludeFiles": "{tests/**,output/**,__pycache__/**,stock_sentiment_analysis.egg-info/**,.github/**,.venv/**,node_modules/**}"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/app.py"
+    }
+  ]
 }
