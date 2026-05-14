@@ -1,11 +1,6 @@
-# Keep the Vercel deployment lean: ship the Next.js app, the api/ function,
-# and the stock_sentiment package it imports — nothing else.
-
-# Dependencies / build output (Vercel installs and builds these itself).
-node_modules/
-.next/
-
-# Python CLI surface that is not used by the serverless function.
+# The Vercel deployment is the Next.js app only. The Python CLI lives in the
+# same repo but is not part of the deployed build.
+stock_sentiment/
 app.py
 main.py
 settings.py
@@ -19,8 +14,11 @@ tests/
 .idea/
 .agent/
 
-# Generated artifacts and caches.
-output/
+# Dependencies / build output (Vercel installs and builds these itself).
+node_modules/
+.next/
+
+# Caches.
 __pycache__/
 *.pyc
 *.egg-info/
@@ -28,3 +26,4 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+output/

@@ -1,2 +1,0 @@
-# No third-party runtime dependencies (stdlib-only).
-# This file's presence tells Vercel to build the project with the Python runtime.

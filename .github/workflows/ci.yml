@@ -59,6 +59,4 @@ jobs:
       - name: Run unit tests
         run: python -m unittest discover -s tests -p "test_*.py"
       - name: Compile check
-        run: |
-          python -m compileall -q stock_sentiment api main.py settings.py app.py
-          python -m json.tool vercel.json > /dev/null
+        run: python -m compileall -q stock_sentiment main.py settings.py app.py

@@ -15,18 +15,19 @@ If you want `--source auto` to prefer NewsAPI before falling back to Google News
 
 ## Web UI
 
-The web interface is a Next.js app (this is what deploys to Vercel). It calls a
-Python Serverless Function at `api/analyze.py`, which reuses the same analysis
-engine as the CLI.
+The web interface is a standard Next.js app (App Router, TypeScript) — this is
+what deploys to Vercel. The analysis engine is ported to a native route handler
+at `app/api/analyze/route.ts`, so the whole web app is one cohesive Next.js
+project with no extra runtimes or deploy configuration.
 
 ```bash
 npm install
+export OPENAI_API_KEY=...   # optional: export NEWSAPI_KEY=...
 npm run dev
 ```
 
-Then visit `http://localhost:3000`. The Next.js dev server does not run the
-Python function, so the live analysis path is exercised on a Vercel deployment
-(or a preview) where `OPENAI_API_KEY` is configured.
+Then visit `http://localhost:3000`. Unlike a static front end, the dev server
+runs the analyze route locally, so the full flow works end to end.
 
 A dependency-free Python WSGI UI is also still available for local use:
 
@@ -83,20 +84,11 @@ fly deploy
 
 ### Vercel
 
-The Vercel deployment is a Next.js front end plus one Python Serverless
-Function:
-
-- **Next.js app** (`app/`, `components/`, `lib/`) — Vercel detects it from
-  `package.json` and serves the UI.
-- **`api/analyze.py`** — Vercel maps files in `api/` to routes by path, so this
-  is served at `/api/analyze` with no rewrite rules. It reuses the WSGI `app`
-  from `stock_sentiment.ui`; `requirements.txt` marks it as a Python build (the
-  engine has no third-party runtime dependencies). `vercel.json` gives it a
-  60-second maximum duration, and on Vercel its cache is written to
-  `/tmp/stock_sentiment`.
-
-`.vercelignore` keeps the deployment lean — it ships the Next.js app, the
-`api/` function, and the `stock_sentiment` package it imports, and nothing else.
+The Vercel deployment is a plain Next.js app — Vercel auto-detects it from
+`package.json` and needs no `vercel.json`. The UI is served statically and
+`app/api/analyze/route.ts` runs as a Node.js Serverless Function (its
+`maxDuration` is declared in the route file). `.vercelignore` keeps the Python
+CLI out of the deployment bundle.
 
 Set `OPENAI_API_KEY` (and optionally `NEWSAPI_KEY`) in the Vercel project's
 environment variables. Typical flow from the repository root:
