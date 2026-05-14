@@ -16,8 +16,10 @@ class TestOpenAIClient(unittest.TestCase):
             payload = create_response(
                 api_key="test-key",
                 model="gpt-test",
-                input_payload=[{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
-                response_format={"type": "json_schema"},
+                input_payload=[
+                    {"role": "user", "content": [{"type": "text", "text": "hi"}]}
+                ],
+                text_format={"type": "json_schema"},
                 temperature=0.4,
                 max_output_tokens=321,
                 base_url="https://api.openai.com/v1/",
@@ -39,13 +41,31 @@ class TestOpenAIClient(unittest.TestCase):
             mock_http_request_json.call_args.kwargs["json_body"]["model"],
             "gpt-test",
         )
+        json_body = mock_http_request_json.call_args.kwargs["json_body"]
+        self.assertEqual(json_body["text"], {"format": {"type": "json_schema"}})
+        self.assertNotIn("response_format", json_body)
+        self.assertEqual(json_body["temperature"], 0.4)
+        self.assertEqual(json_body["max_output_tokens"], 321)
+
+    def test_create_response_accepts_legacy_response_format_alias(self) -> None:
+        with patch(
+            "stock_sentiment.openai_client.http_request_json",
+            return_value={"id": "resp_123"},
+        ) as mock_http_request_json:
+            create_response(
+                api_key="test-key",
+                model="gpt-test",
+                input_payload=[],
+                response_format={"type": "json_schema"},
+            )
+
         self.assertEqual(
-            mock_http_request_json.call_args.kwargs["json_body"]["temperature"],
-            0.4,
+            mock_http_request_json.call_args.kwargs["json_body"]["text"],
+            {"format": {"type": "json_schema"}},
         )
-        self.assertEqual(
-            mock_http_request_json.call_args.kwargs["json_body"]["max_output_tokens"],
-            321,
+        self.assertNotIn(
+            "temperature",
+            mock_http_request_json.call_args.kwargs["json_body"],
         )
 
     def test_create_response_rejects_invalid_temperature(self) -> None:

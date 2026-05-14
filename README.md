@@ -1,6 +1,6 @@
 # Stock Sentiment Analysis
 
-Score recent stock news sentiment with OpenAI.
+Score recent stock news sentiment with OpenAI. The default model is `gpt-5.4-nano`, chosen for high-volume classification based on current OpenAI model guidance; override `OPENAI_MODEL` when you want a larger model.
 
 ## Quick Start
 
@@ -32,7 +32,7 @@ OPENAI_API_KEY=...
 # Optional (needed for --source newsapi, and lets --source auto prefer NewsAPI)
 NEWSAPI_KEY=...
 # Optional
-OPENAI_MODEL=gpt-5-nano-2025-08-07
+OPENAI_MODEL=gpt-5.4-nano
 OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
