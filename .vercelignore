@@ -1,0 +1,29 @@
+# The Vercel deployment is the Next.js app only. The Python CLI lives in the
+# same repo but is not part of the deployed build.
+stock_sentiment/
+app.py
+main.py
+settings.py
+pyproject.toml
+Dockerfile
+.dockerignore
+
+# Tests, CI, and local tooling.
+tests/
+.github/
+.idea/
+.agent/
+
+# Dependencies / build output (Vercel installs and builds these itself).
+node_modules/
+.next/
+
+# Caches.
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+output/

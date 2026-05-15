@@ -13,14 +13,29 @@ python3 -m stock_sentiment analyze TSLA
 
 If you want `--source auto` to prefer NewsAPI before falling back to Google News RSS, also set `NEWSAPI_KEY`.
 
-Open the local UI:
+## Web UI
+
+The web interface is a standard Next.js app (App Router, TypeScript) — this is
+what deploys to Vercel. The analysis engine is ported to a native route handler
+at `app/api/analyze/route.ts`, so the whole web app is one cohesive Next.js
+project with no extra runtimes or deploy configuration.
+
+```bash
+npm install
+export OPENAI_API_KEY=...   # optional: export NEWSAPI_KEY=...
+npm run dev
+```
+
+Then visit `http://localhost:3000`. Unlike a static front end, the dev server
+runs the analyze route locally, so the full flow works end to end.
+
+A dependency-free Python WSGI UI is also still available for local use:
 
 ```bash
 python3 -m stock_sentiment ui
 ```
 
 Set `OPENAI_API_KEY` first. Add `NEWSAPI_KEY` if you want auto to prefer NewsAPI.
-
 Then visit `http://127.0.0.1:8765`.
 
 ## Configuration
@@ -69,9 +84,14 @@ fly deploy
 
 ### Vercel
 
-Vercel detects the root `app.py` entrypoint because it exports a top-level WSGI app named `app`. The included `vercel.json` configures that Python function with a 60-second maximum duration and excludes tests, local artifact folders, and Node development dependencies from the bundle. On Vercel, the UI cache is written to `/tmp/stock_sentiment`, which is suitable for ephemeral serverless function storage.
+The Vercel deployment is a plain Next.js app — Vercel auto-detects it from
+`package.json` and needs no `vercel.json`. The UI is served statically and
+`app/api/analyze/route.ts` runs as a Node.js Serverless Function (its
+`maxDuration` is declared in the route file). `.vercelignore` keeps the Python
+CLI out of the deployment bundle.
 
-Typical flow from the repository root:
+Set `OPENAI_API_KEY` (and optionally `NEWSAPI_KEY`) in the Vercel project's
+environment variables. Typical flow from the repository root:
 
 ```bash
 vercel env add OPENAI_API_KEY preview
