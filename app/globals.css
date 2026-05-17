@@ -47,7 +47,7 @@ html {
 }
 
 body {
-  background: var(--bg);
+  background: transparent;
   color: var(--text);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
@@ -76,82 +76,21 @@ button {
 .aurora {
   position: fixed;
   inset: 0;
-  z-index: -2;
-  overflow: hidden;
+  z-index: -1;
   pointer-events: none;
-}
-
-.aurora-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(110px);
-  opacity: 0.55;
-  will-change: transform;
-}
-
-.aurora-blob.b1 {
-  width: 56vw;
-  height: 56vw;
-  left: -16vw;
-  top: -22vw;
-  background: radial-gradient(circle, rgba(139, 92, 255, 0.5), transparent 68%);
-  animation: drift1 26s var(--ease) infinite alternate;
-}
-
-.aurora-blob.b2 {
-  width: 52vw;
-  height: 52vw;
-  right: -18vw;
-  top: -10vw;
-  background: radial-gradient(circle, rgba(77, 141, 255, 0.42), transparent 68%);
-  animation: drift2 32s var(--ease) infinite alternate;
-}
-
-.aurora-blob.b3 {
-  width: 60vw;
-  height: 60vw;
-  left: 18vw;
-  bottom: -42vw;
-  background: radial-gradient(circle, rgba(47, 214, 160, 0.22), transparent 70%);
-  animation: drift3 38s var(--ease) infinite alternate;
-}
-
-@keyframes drift1 {
-  to {
-    transform: translate3d(8vw, 6vw, 0) scale(1.15);
-  }
-}
-@keyframes drift2 {
-  to {
-    transform: translate3d(-7vw, 9vw, 0) scale(1.1);
-  }
-}
-@keyframes drift3 {
-  to {
-    transform: translate3d(-6vw, -7vw, 0) scale(1.18);
-  }
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 15%, rgba(139, 92, 255, 0.28), transparent),
+    radial-gradient(ellipse 60% 55% at 85% 25%, rgba(77, 141, 255, 0.22), transparent),
+    radial-gradient(ellipse 65% 45% at 50% 90%, rgba(47, 214, 160, 0.16), transparent),
+    var(--bg);
 }
 
 .grain {
   position: fixed;
   inset: -50%;
-  z-index: -1;
   pointer-events: none;
-  opacity: 0.035;
+  opacity: 0.05;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-.vignette {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(
-    120% 90% at 50% 0%,
-    transparent 30%,
-    rgba(6, 7, 8, 0.55) 78%,
-    var(--bg) 100%
-  );
 }
 
 /* ---- Shell ------------------------------------------------------ */
@@ -165,6 +104,8 @@ button {
   padding: clamp(28px, 5vw, 64px) clamp(20px, 5vw, 56px) 80px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ---- Brand ------------------------------------------------------ */
@@ -172,6 +113,7 @@ button {
 .brand {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 9px;
   font-size: 13px;
   font-weight: 600;
@@ -208,8 +150,11 @@ button {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
   gap: clamp(22px, 3.4vw, 34px);
   padding: clamp(32px, 7vh, 90px) 0;
+  text-align: center;
+  width: 100%;
 }
 
 .eyebrow {
@@ -231,7 +176,7 @@ button {
 }
 
 .display {
-  margin: 14px 0 0;
+  margin: 14px auto 0;
   font-size: clamp(2.9rem, 7.4vw, 5.4rem);
   line-height: 0.98;
   letter-spacing: -0.045em;
@@ -248,7 +193,7 @@ button {
 }
 
 .lede {
-  margin: 18px 0 0;
+  margin: 18px auto 0;
   max-width: 46ch;
   font-size: clamp(1rem, 1.45vw, 1.18rem);
   line-height: 1.55;
@@ -264,6 +209,7 @@ button {
   gap: 10px;
   width: 100%;
   max-width: 560px;
+  margin: 0 auto;
   padding: 10px 10px 10px 22px;
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -383,6 +329,7 @@ button {
   flex-wrap: wrap;
   gap: 9px;
   align-items: center;
+  justify-content: center;
 }
 
 .chips-label {
@@ -427,6 +374,7 @@ button {
   border-radius: 16px;
   background: var(--surface);
   max-width: 560px;
+  margin: 0 auto;
 }
 
 .orb {
@@ -512,6 +460,7 @@ button {
   border-radius: 16px;
   background: rgba(255, 107, 98, 0.06);
   max-width: 560px;
+  margin: 0 auto;
 }
 
 .error-title {
@@ -550,9 +499,10 @@ button {
 /* ---- Disclaimer ------------------------------------------------- */
 
 .disclaimer {
-  margin: 6px 0 0;
+  margin: 6px auto 0;
   font-size: 12.5px;
   color: var(--text-faint);
+  text-align: center;
 }
 
 /* ---- Results ---------------------------------------------------- */
