@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Playfair_Display } from "next/font/google";
 import Aurora from "@/components/Aurora";
+import MotionProvider from "@/components/MotionProvider";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -43,7 +44,7 @@ export default function RootLayout({
     >
       <body>
         <Aurora />
-        {children}
+        <MotionProvider>{children}</MotionProvider>
       </body>
     </html>
   );

@@ -75,13 +75,25 @@ button {
 
 .aurora {
   position: fixed;
-  inset: 0;
+  inset: -8%;
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201, 169, 110, 0.06), transparent),
-    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(122, 184, 160, 0.04), transparent),
+    radial-gradient(ellipse 70% 55% at 50% -4%, rgba(201, 169, 110, 0.18), transparent 62%),
+    radial-gradient(ellipse 55% 45% at 86% 12%, rgba(122, 184, 160, 0.12), transparent 60%),
+    radial-gradient(ellipse 65% 50% at 14% 96%, rgba(201, 169, 110, 0.08), transparent 62%),
     var(--bg);
+  animation: aurora-drift 32s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes aurora-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-2%, 1.4%, 0) scale(1.04);
+  }
 }
 
 .grain {
@@ -946,6 +958,7 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .aurora,
   .brand-dot,
   .orb::before,
   .orb::after,
