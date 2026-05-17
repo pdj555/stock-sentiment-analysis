@@ -22,6 +22,8 @@ jobs:
           python -m pip install -e .
       - name: Install browser test dependency
         run: npm install --no-fund --no-audit
+      - name: Build Next.js app
+        run: npm run build
       - name: CLI smoke test
         run: |
           python -m stock_sentiment --version
