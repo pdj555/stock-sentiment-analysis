@@ -136,7 +136,7 @@ async function callResponsesApi(
 
     if (response.status === 401 || response.status === 403) {
       throw new ConfigError(
-        "The OPENAI_API_KEY was rejected. Check the key in your Vercel project settings.",
+        "The API key was rejected. Check OLLAMA_API_KEY (or OPENAI_API_KEY) in your Vercel project settings.",
       );
     }
 
@@ -167,7 +167,7 @@ export async function classifyArticles(options: {
   }
   if (!apiKey) {
     throw new ConfigError(
-      "Missing OPENAI_API_KEY. Add it to the project's environment variables, then try again.",
+      "Missing OLLAMA_API_KEY (or OPENAI_API_KEY). Add it to the project's environment variables, then try again.",
     );
   }
 

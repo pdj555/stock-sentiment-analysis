@@ -94,7 +94,9 @@ export async function analyze(rawTicker: string): Promise<AnalysisResult> {
   const ticker = normalizeTicker(rawTicker);
 
   const newsApiKey = (process.env.NEWSAPI_KEY ?? "").trim();
-  const openAiKey = (process.env.OPENAI_API_KEY ?? "").trim();
+  const openAiKey = (
+    (process.env.OLLAMA_API_KEY ?? process.env.OPENAI_API_KEY) ?? ""
+  ).trim();
   const model = (process.env.OPENAI_MODEL ?? "").trim() || DEFAULT_MODEL;
   const baseUrl = (process.env.OPENAI_BASE_URL ?? "").trim() || DEFAULT_BASE_URL;
 
