@@ -4,7 +4,7 @@ import { ConfigError, UpstreamError } from "@/lib/server/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function errorResponse(message: string, status: number) {
   return NextResponse.json(
