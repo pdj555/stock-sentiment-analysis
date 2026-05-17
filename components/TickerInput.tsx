@@ -26,7 +26,6 @@ export default function TickerInput({
         onSubmit(value);
       }}
     >
-      <span className="ticker-glow" aria-hidden />
       <input
         className="ticker-input"
         value={value}

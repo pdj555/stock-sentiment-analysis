@@ -66,15 +66,15 @@ export default function Hero({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       >
-        <span className="eyebrow">AI news sentiment</span>
+        <span className="eyebrow">Market intelligence</span>
         <h1 className="display">
           Read the market
           <br />
-          before it moves.
+          before it <em>moves</em>.
         </h1>
         <p className="lede">
-          Type a ticker. We read every recent headline, score the sentiment with
-          AI, and distill it into one clear signal.
+          Type a ticker. We read every recent headline, score the sentiment
+          with AI, and distill it into one clear signal.
         </p>
       </motion.div>
 
