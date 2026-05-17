@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import { Playfair_Display } from "next/font/google";
 import Aurora from "@/components/Aurora";
 import MotionProvider from "@/components/MotionProvider";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -12,17 +13,35 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
+const SITE_URL = siteUrl();
+const TITLE = "Sentiment — Read the market before it moves";
+const DESCRIPTION =
+  "AI-powered news sentiment for any stock ticker. Every headline read, scored, and distilled into one clear signal.";
+
 export const metadata: Metadata = {
-  title: "Sentiment — Read the market before it moves",
-  description:
-    "AI-powered news sentiment for any stock ticker. Every headline read, scored, and distilled into one clear signal.",
+  metadataBase: SITE_URL,
+  title: TITLE,
+  description: DESCRIPTION,
   applicationName: "Sentiment",
   authors: [{ name: "Stock Sentiment" }],
+  alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+  },
   openGraph: {
-    title: "Sentiment — Read the market before it moves",
-    description:
-      "AI-powered news sentiment for any stock ticker. Every headline read, scored, and distilled into one clear signal.",
+    title: TITLE,
+    description: DESCRIPTION,
     type: "website",
+    url: SITE_URL.toString(),
+    siteName: "Sentiment",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
   },
 };
 
