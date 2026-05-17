@@ -22,7 +22,6 @@ const HALF_LIFE_HOURS = 24;
 const SCORE_THRESHOLD = 0.15;
 const MIN_SIGNAL_CONFIDENCE = 0.55;
 
-const DEFAULT_MODEL = "gpt-5.4-nano";
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
 const SOURCE_LABELS: Record<NewsSource, string> = {
@@ -93,12 +92,18 @@ function dedupe(articles: RawArticle[], limit: number): RawArticle[] {
 export async function analyze(rawTicker: string): Promise<AnalysisResult> {
   const ticker = normalizeTicker(rawTicker);
 
-  const newsApiKey = (process.env.NEWSAPI_KEY ?? "").trim();
-  const openAiKey = (
-    (process.env.OLLAMA_API_KEY ?? process.env.OPENAI_API_KEY) ?? ""
-  ).trim();
-  const model = (process.env.OPENAI_MODEL ?? "").trim() || DEFAULT_MODEL;
-  const baseUrl = (process.env.OPENAI_BASE_URL ?? "").trim() || DEFAULT_BASE_URL;
+  const env = (name: string) => (process.env[name] ?? "").trim();
+  const newsApiKey = env("NEWSAPI_KEY");
+  const openAiKey = env("OLLAMA_API_KEY") || env("OPENAI_API_KEY");
+  const model = env("OPENAI_MODEL") || env("OLLAMA_MODEL");
+  const baseUrl =
+    env("OPENAI_BASE_URL") || env("OLLAMA_BASE_URL") || DEFAULT_BASE_URL;
+
+  if (!model) {
+    throw new ConfigError(
+      "Missing OPENAI_MODEL (or OLLAMA_MODEL). Set it in the project's environment variables to the model you want to use.",
+    );
+  }
 
   const now = new Date();
   const fromDate = new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000);
