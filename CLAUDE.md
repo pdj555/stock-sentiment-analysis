@@ -27,6 +27,13 @@ OPENAI_MODEL=gpt-5-nano-2025-08-07
 OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
+For Ollama Cloud (or any OpenAI-compatible endpoint), set `OLLAMA_API_KEY` and override the base URL and model:
+```
+OLLAMA_API_KEY=your_ollama_key
+OPENAI_BASE_URL=https://api.ollama.com/v1
+OPENAI_MODEL=kimi-k2.6
+```
+
 ## Running the Application
 
 Preferred:
