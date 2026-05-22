@@ -122,7 +122,10 @@ def analyze_articles_with_openai(
     include_reasons: bool = True,
 ) -> OpenAIClassificationBatch:
     if not openai.api_key:
-        raise ConfigurationError("Missing OPENAI_API_KEY")
+        raise ConfigurationError(
+            "Missing OLLAMA_API_KEY (or OPENAI_API_KEY). "
+            "Set one in your shell, ./.env, or GitHub Actions secrets."
+        )
 
     payload_articles: list[dict[str, Any]] = []
     for a in articles:

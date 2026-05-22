@@ -317,7 +317,8 @@ def run_analysis(
 
     if not openai.api_key and not use_cache and unique_articles:
         raise ConfigurationError(
-            "Missing OPENAI_API_KEY. Set it to analyze articles, or rerun with caching enabled after a successful run."
+            "Missing OLLAMA_API_KEY (or OPENAI_API_KEY). "
+            "Set one to analyze articles, or rerun with caching enabled after a successful run."
         )
 
     try:
@@ -332,9 +333,12 @@ def run_analysis(
             half_life_hours=half_life_hours,
         )
     except ConfigurationError as e:
-        if not openai.api_key and "OPENAI_API_KEY" in str(e):
+        if not openai.api_key and (
+            "OPENAI_API_KEY" in str(e) or "OLLAMA_API_KEY" in str(e)
+        ):
             raise ConfigurationError(
-                "Missing OPENAI_API_KEY. Some articles were not cached; set OPENAI_API_KEY to analyze them."
+                "Missing OLLAMA_API_KEY (or OPENAI_API_KEY). "
+                "Some articles were not cached; set a key to analyze them."
             ) from e
         raise
 

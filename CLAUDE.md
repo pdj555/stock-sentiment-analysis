@@ -15,9 +15,10 @@ This is a stdlib-only Python CLI that fetches recent news for a stock ticker and
 ### Environment Configuration
 A `.env` file is optional in the current working directory. The CLI loads `./.env` by default, or `--env-file FILE` to use a different file, without overwriting existing environment variables. In this repo that usually means the repository root.
 
-Required:
+Required (either works; OLLAMA wins when both are set):
 ```
-OPENAI_API_KEY=your_api_key
+OLLAMA_API_KEY=your_ollama_key
+OPENAI_API_KEY=your_openai_key
 ```
 
 Optional:
@@ -34,9 +35,23 @@ OPENAI_BASE_URL=https://ollama.com/v1
 OPENAI_MODEL=gpt-oss:120b
 ```
 
-The Next.js web app reads either prefix (`OLLAMA_*` wins over `OPENAI_*`); the Python CLI reads only `OPENAI_*`.
+The Next.js web app and Python CLI both prefer `OLLAMA_*` over `OPENAI_*`.
 
-## Running the Application
+### GitHub Actions secrets
+
+Set on this repository (Settings → Secrets → Actions):
+
+| Secret | Role |
+| :-- | :-- |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Primary auth for `@claude` workflows |
+| `OLLAMA_API_KEY` | Fallback when OAuth is unset — powers Claude via Ollama Cloud and OpenAI-compatible app tests |
+| `ANTHROPIC_API_KEY` | Last-resort Anthropic API key |
+
+Sync across portfolio repos:
+```bash
+export OLLAMA_API_KEY='...'
+./scripts/sync-ollama-secret.sh
+```
 
 Preferred:
 ```bash
