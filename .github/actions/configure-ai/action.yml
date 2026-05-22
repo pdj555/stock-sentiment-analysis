@@ -1,5 +1,5 @@
 name: Configure AI credentials
-description: Claude OAuth first, Ollama Cloud fallback, then Anthropic API key.
+description: Select auth provider and set non-secret model endpoints only. Never writes secrets to GITHUB_ENV.
 
 inputs:
   claude_code_oauth_token:
@@ -7,46 +7,50 @@ inputs:
     required: false
     default: ""
   ollama_api_key:
-    description: Fallback Ollama Cloud API key (also wires OpenAI-compatible env for app tests)
+    description: Fallback Ollama Cloud API key
     required: false
     default: ""
   anthropic_api_key:
-    description: Fallback Anthropic API key when OAuth and Ollama are unavailable
+    description: Fallback Anthropic API key
     required: false
     default: ""
+
+outputs:
+  provider:
+    description: Selected auth provider
+    value: ${{ steps.select.outputs.provider }}
 
 runs:
   using: composite
   steps:
-    - shell: bash
+    - id: select
+      shell: bash
       env:
-        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude_code_oauth_token }}
-        OLLAMA_API_KEY: ${{ inputs.ollama_api_key }}
-        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        HAS_OAUTH: ${{ inputs.claude_code_oauth_token != '' }}
+        HAS_OLLAMA: ${{ inputs.ollama_api_key != '' }}
+        HAS_ANTHROPIC: ${{ inputs.anthropic_api_key != '' }}
       run: |
         set -euo pipefail
 
-        if [ -n "${CLAUDE_CODE_OAUTH_TOKEN}" ]; then
-          echo "CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}" >> "$GITHUB_ENV"
+        if [ "$HAS_OAUTH" = "true" ]; then
+          echo "provider=claude-oauth" >> "$GITHUB_OUTPUT"
           echo "ai_provider=claude-oauth" >> "$GITHUB_ENV"
-        elif [ -n "${OLLAMA_API_KEY}" ]; then
+        elif [ "$HAS_OLLAMA" = "true" ]; then
+          echo "provider=ollama-cloud" >> "$GITHUB_OUTPUT"
           {
+            echo "ai_provider=ollama-cloud"
             echo "ANTHROPIC_BASE_URL=https://ollama.com"
-            echo "ANTHROPIC_AUTH_TOKEN=${OLLAMA_API_KEY}"
-            echo "ANTHROPIC_API_KEY="
             echo "ANTHROPIC_DEFAULT_SONNET_MODEL=glm-5:cloud"
             echo "ANTHROPIC_DEFAULT_OPUS_MODEL=glm-5:cloud"
-            echo "OPENAI_API_KEY=${OLLAMA_API_KEY}"
             echo "OPENAI_BASE_URL=https://ollama.com/v1"
-            echo "OLLAMA_API_KEY=${OLLAMA_API_KEY}"
             echo "OLLAMA_BASE_URL=https://ollama.com/v1"
             echo "OLLAMA_MODEL=gpt-oss:120b"
             echo "OPENAI_MODEL=gpt-oss:120b"
-            echo "ai_provider=ollama-cloud"
           } >> "$GITHUB_ENV"
-        elif [ -n "${ANTHROPIC_API_KEY}" ]; then
-          echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" >> "$GITHUB_ENV"
+        elif [ "$HAS_ANTHROPIC" = "true" ]; then
+          echo "provider=anthropic-api" >> "$GITHUB_OUTPUT"
           echo "ai_provider=anthropic-api" >> "$GITHUB_ENV"
         else
+          echo "provider=none" >> "$GITHUB_OUTPUT"
           echo "ai_provider=none" >> "$GITHUB_ENV"
         fi

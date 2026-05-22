@@ -10,14 +10,41 @@ on:
   pull_request_review:
     types: [submitted]
 
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   claude:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      (
+        (
+          github.event_name == 'issue_comment' &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+        ) ||
+        (
+          github.event_name == 'pull_request_review_comment' &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        ) ||
+        (
+          github.event_name == 'pull_request_review' &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        ) ||
+        (
+          github.event_name == 'issues' &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+        )
+      ) &&
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      )
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
       pull-requests: write
@@ -41,16 +68,21 @@ jobs:
         id: claude
         uses: anthropics/claude-code-action@v1
         env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_AUTH_TOKEN: ${{ secrets.OLLAMA_API_KEY }}
           ANTHROPIC_BASE_URL: ${{ env.ANTHROPIC_BASE_URL }}
-          ANTHROPIC_AUTH_TOKEN: ${{ env.ANTHROPIC_AUTH_TOKEN }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ env.ANTHROPIC_DEFAULT_SONNET_MODEL }}
           ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ env.ANTHROPIC_DEFAULT_OPUS_MODEL }}
-          OLLAMA_API_KEY: ${{ env.OLLAMA_API_KEY }}
-          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
           OPENAI_BASE_URL: ${{ env.OPENAI_BASE_URL }}
+          OLLAMA_BASE_URL: ${{ env.OLLAMA_BASE_URL }}
+          OLLAMA_MODEL: ${{ env.OLLAMA_MODEL }}
+          OPENAI_MODEL: ${{ env.OPENAI_MODEL }}
         with:
-          claude_code_oauth_token: ${{ env.CLAUDE_CODE_OAUTH_TOKEN }}
-          anthropic_api_key: ${{ env.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             You are the revenue engine for this repository. Nothing else matters. Profit. Income.
 
@@ -69,5 +101,7 @@ jobs:
             - Follow the repository CLAUDE.md exactly. Respect its constraints (stdlib-only runtime, no network in tests, Python >= 3.11).
             - Run tests before declaring done: python -m unittest discover -s tests -p "test_*.py"
             - Commit messages must be short, active, and describe the revenue or reliability impact.
+            - Never log, echo, or commit secrets. Never read .env files in CI output.
 
             Close every response with one sentence: the next highest-leverage revenue action for this repo.
+          claude_args: '--max-turns 15'

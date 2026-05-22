@@ -8,12 +8,17 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: claude-review-${{ inputs.pr_number }}
+  cancel-in-progress: true
+
 jobs:
   claude-review:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       issues: read
       id-token: write
     steps:
@@ -33,16 +38,21 @@ jobs:
         id: claude-review
         uses: anthropics/claude-code-action@v1
         env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_AUTH_TOKEN: ${{ secrets.OLLAMA_API_KEY }}
           ANTHROPIC_BASE_URL: ${{ env.ANTHROPIC_BASE_URL }}
-          ANTHROPIC_AUTH_TOKEN: ${{ env.ANTHROPIC_AUTH_TOKEN }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ env.ANTHROPIC_DEFAULT_SONNET_MODEL }}
           ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ env.ANTHROPIC_DEFAULT_OPUS_MODEL }}
-          OLLAMA_API_KEY: ${{ env.OLLAMA_API_KEY }}
-          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
           OPENAI_BASE_URL: ${{ env.OPENAI_BASE_URL }}
+          OLLAMA_BASE_URL: ${{ env.OLLAMA_BASE_URL }}
+          OLLAMA_MODEL: ${{ env.OLLAMA_MODEL }}
+          OPENAI_MODEL: ${{ env.OPENAI_MODEL }}
         with:
-          claude_code_oauth_token: ${{ env.CLAUDE_CODE_OAUTH_TOKEN }}
-          anthropic_api_key: ${{ env.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ inputs.pr_number }}
