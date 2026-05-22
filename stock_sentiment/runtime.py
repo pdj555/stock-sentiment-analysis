@@ -147,8 +147,15 @@ def _validated_openai_config(request: AnalysisRequest) -> OpenAISentimentConfig:
             "OpenAI base URL must be an http(s) URL (e.g., https://api.openai.com/v1)."
         )
 
+    api_key = str(request.openai_api_key or "").strip()
+    if not api_key:
+        raise ConfigurationError(
+            "Missing OLLAMA_API_KEY (or OPENAI_API_KEY). "
+            "Set one in your shell, ./.env, or GitHub Actions secrets."
+        )
+
     return OpenAISentimentConfig(
-        api_key=str(request.openai_api_key or "").strip(),
+        api_key=api_key,
         model=model,
         base_url=base_url,
     )

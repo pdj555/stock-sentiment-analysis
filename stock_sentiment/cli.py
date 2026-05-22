@@ -12,6 +12,7 @@ from stock_sentiment import (
     DEFAULT_OPENAI_MODEL,
     __version__,
 )
+from stock_sentiment.ai_credentials import resolve_openai_credentials
 from stock_sentiment.env import load_dotenv
 from stock_sentiment.errors import (
     ConfigurationError,
@@ -260,6 +261,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.include_articles and args.format != "json":
             raise ConfigurationError("--include-articles requires --format json.")
+        api_key, default_base, default_model = resolve_openai_credentials()
         result = run_analysis(
             AnalysisRequest(
                 ticker=args.ticker,
@@ -268,10 +270,10 @@ def main(argv: list[str] | None = None) -> int:
                 max_articles=int(args.max_articles),
                 half_life_hours=float(args.half_life_hours),
                 source=args.source,
-                openai_api_key=os.environ.get("OPENAI_API_KEY", "").strip(),
+                openai_api_key=api_key,
                 newsapi_key=os.environ.get("NEWSAPI_KEY", "").strip(),
-                openai_model=str(args.model or ""),
-                openai_base_url=str(args.openai_base_url or ""),
+                openai_model=str(args.model or default_model),
+                openai_base_url=str(args.openai_base_url or default_base),
                 use_cache=not args.no_cache,
                 cache_ttl_hours=float(args.cache_ttl_hours),
                 cache_dir=args.cache_dir,
