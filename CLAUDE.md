@@ -39,19 +39,15 @@ The Next.js web app and Python CLI both prefer `OLLAMA_*` over `OPENAI_*`.
 
 ### GitHub Actions secrets
 
-Set on this repository (Settings → Secrets → Actions):
+Set per repository in GitHub → Settings → Secrets → Actions. Never paste keys into chat, commits, or shell history.
 
 | Secret | Role |
 | :-- | :-- |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Primary auth for `@claude` workflows |
-| `OLLAMA_API_KEY` | Fallback when OAuth is unset — powers Claude via Ollama Cloud and OpenAI-compatible app tests |
+| `OLLAMA_API_KEY` | Fallback when OAuth is unset |
 | `ANTHROPIC_API_KEY` | Last-resort Anthropic API key |
 
-Sync across portfolio repos:
-```bash
-export OLLAMA_API_KEY='...'
-./scripts/sync-ollama-secret.sh
-```
+Use `gh secret set SECRET_NAME -R pdj555/REPO` and enter the value at the prompt. Do not pipe from `.env` files.
 
 Preferred:
 ```bash
