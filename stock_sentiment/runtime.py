@@ -147,15 +147,8 @@ def _validated_openai_config(request: AnalysisRequest) -> OpenAISentimentConfig:
             "OpenAI base URL must be an http(s) URL (e.g., https://api.openai.com/v1)."
         )
 
-    api_key = str(request.openai_api_key or "").strip()
-    if not api_key:
-        raise ConfigurationError(
-            "Missing OLLAMA_API_KEY (or OPENAI_API_KEY). "
-            "Set one in your shell, ./.env, or GitHub Actions secrets."
-        )
-
     return OpenAISentimentConfig(
-        api_key=api_key,
+        api_key=str(request.openai_api_key or "").strip(),
         model=model,
         base_url=base_url,
     )
@@ -324,7 +317,8 @@ def run_analysis(
 
     if not openai.api_key and not use_cache and unique_articles:
         raise ConfigurationError(
-            "Missing OPENAI_API_KEY. Set it to analyze articles, or rerun with caching enabled after a successful run."
+            "Missing OLLAMA_API_KEY (or OPENAI_API_KEY). "
+            "Set one to analyze articles, or rerun with caching enabled after a successful run."
         )
 
     try:
@@ -339,9 +333,12 @@ def run_analysis(
             half_life_hours=half_life_hours,
         )
     except ConfigurationError as e:
-        if not openai.api_key and "OPENAI_API_KEY" in str(e):
+        if not openai.api_key and (
+            "OPENAI_API_KEY" in str(e) or "OLLAMA_API_KEY" in str(e)
+        ):
             raise ConfigurationError(
-                "Missing OPENAI_API_KEY. Some articles were not cached; set OPENAI_API_KEY to analyze them."
+                "Missing OLLAMA_API_KEY (or OPENAI_API_KEY). "
+                "Some articles were not cached; set a key to analyze them."
             ) from e
         raise
 
