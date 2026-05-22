@@ -1,19 +1,42 @@
+import { checkBotId } from "botid/server";
 import { NextResponse } from "next/server";
 import { analyze } from "@/lib/server/analysis";
 import { ConfigError, UpstreamError } from "@/lib/server/errors";
+import { clientKey, rateLimit } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-function errorResponse(message: string, status: number) {
+function errorResponse(
+  message: string,
+  status: number,
+  extraHeaders: Record<string, string> = {},
+) {
   return NextResponse.json(
     { error: { message } },
-    { status, headers: { "cache-control": "no-store" } },
+    {
+      status,
+      headers: { "cache-control": "no-store", ...extraHeaders },
+    },
   );
 }
 
 export async function POST(request: Request) {
+  const limit = rateLimit(clientKey(request));
+  if (!limit.allowed) {
+    return errorResponse(
+      "Too many requests. Try again in a moment.",
+      429,
+      { "retry-after": String(limit.retryAfterSeconds) },
+    );
+  }
+
+  const verification = await checkBotId();
+  if (verification.isBot) {
+    return errorResponse("Access denied.", 403);
+  }
+
   let ticker: unknown;
   try {
     const body = await request.json();
