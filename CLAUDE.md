@@ -28,10 +28,10 @@ OPENAI_MODEL=gpt-5-nano-2025-08-07
 OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-For Ollama Cloud (or any OpenAI-compatible endpoint), set `OLLAMA_API_KEY` and override the base URL and model. Ollama Cloud's OpenAI-compatible API lives at `https://ollama.com/v1` (no `api.` subdomain) and supports `/v1/responses` since Ollama v0.13.3. The model must be one Ollama hosts:
+For Ollama Cloud (or any OpenAI-compatible endpoint), set `OLLAMA_API_KEY` and override the base URL and model. Ollama Cloud's OpenAI-compatible API base URL is `https://ollama.com/api` (the client appends `/responses`). The model must be one Ollama hosts:
 ```
 OLLAMA_API_KEY=your_ollama_key
-OPENAI_BASE_URL=https://ollama.com/v1
+OPENAI_BASE_URL=https://ollama.com/api
 OPENAI_MODEL=gpt-oss:120b
 ```
 
