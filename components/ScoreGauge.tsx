@@ -54,8 +54,8 @@ export default function ScoreGauge({ score, tone }: ScoreGaugeProps) {
         <path
           d={trackPath}
           fill="none"
-          stroke="rgba(255,255,255,0.09)"
-          strokeWidth="10"
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth="8"
           strokeLinecap="round"
         />
 
@@ -74,7 +74,7 @@ export default function ScoreGauge({ score, tone }: ScoreGaugeProps) {
           d={progressPath}
           fill="none"
           stroke="url(#gaugeProgress)"
-          strokeWidth="10"
+          strokeWidth="8"
           strokeLinecap="round"
           initial={{ pathLength: 0, opacity: 0.6 }}
           animate={{ pathLength: 1, opacity: 1 }}
