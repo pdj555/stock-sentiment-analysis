@@ -65,61 +65,61 @@ export default function Results({ result, onReset }: ResultsProps) {
       </header>
 
       <motion.section
-        className={`verdict tone-${signalTone}`}
+        className={`verdict nous-panel tone-${signalTone}`}
         initial={{ opacity: 0, y: 24, scale: 0.99 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.7, ease: EASE }}
       >
+        <span className="panel-legend">Signal analysis</span>
         <ScoreGauge score={summary.score} tone={signalTone} />
 
         <div className="verdict-main">
-          <span className="verdict-eyebrow">Signal</span>
-          <motion.h3
-            className="signal-word"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.18, ease: EASE }}
-          >
-            {SIGNAL_COPY[summary.signal].word}
-          </motion.h3>
+          <h3 className="signal-line">
+            Signal:{" "}
+            <span className="signal-word">{SIGNAL_COPY[summary.signal].word}</span>
+          </h3>
           <p className="verdict-line">{SIGNAL_COPY[summary.signal].line}</p>
-          <span className="label-pill">
-            <span className="dot" aria-hidden />
-            {LABEL_COPY[summary.label]} sentiment ·{" "}
-            {formatConfidence(summary.confidence)} confidence
-          </span>
+          <p className="metric-line">
+            Label: {LABEL_COPY[summary.label]} · Confidence:{" "}
+            {formatConfidence(summary.confidence)}
+          </p>
         </div>
       </motion.section>
 
-      <motion.div
-        className="stats"
-        variants={container}
-        initial="hidden"
-        animate="show"
-      >
-        <motion.div className={`stat tone-${signalTone}`} variants={item}>
-          <span className="stat-label">Score</span>
-          <span className="stat-value tinted">{formatScore(summary.score)}</span>
-          <span className="stat-sub">weighted mean, −1 to +1</span>
+      <div className="stats-wrap">
+        <span className="panel-legend">Metrics</span>
+        <motion.div
+          className={`stats-panel tone-${signalTone}`}
+          variants={container}
+          initial="hidden"
+          animate="show"
+        >
+        <motion.div className={`stats-panel-item tone-${signalTone}`} variants={item}>
+          <p className="stat-line">
+            Score:{" "}
+            <span className="stat-value tinted">{formatScore(summary.score)}</span>
+          </p>
         </motion.div>
-        <motion.div className="stat" variants={item}>
-          <span className="stat-label">Confidence</span>
-          <span className="stat-value">
-            {formatConfidence(summary.confidence)}
-          </span>
-          <span className="stat-sub">model conviction</span>
+        <motion.div className="stats-panel-item" variants={item}>
+          <p className="stat-line">
+            Confidence:{" "}
+            <span className="stat-value">{formatConfidence(summary.confidence)}</span>
+          </p>
         </motion.div>
-        <motion.div className="stat" variants={item}>
-          <span className="stat-label">Headlines</span>
-          <span className="stat-value">{summary.articles_analyzed}</span>
-          <span className="stat-sub">stories analyzed</span>
+        <motion.div className="stats-panel-item" variants={item}>
+          <p className="stat-line">
+            Headlines:{" "}
+            <span className="stat-value">{summary.articles_analyzed}</span>
+          </p>
         </motion.div>
-        <motion.div className="stat" variants={item}>
-          <span className="stat-label">Window</span>
-          <span className="stat-value">{summary.lookback_days}d</span>
-          <span className="stat-sub">news lookback</span>
+        <motion.div className="stats-panel-item" variants={item}>
+          <p className="stat-line">
+            Window:{" "}
+            <span className="stat-value">{summary.lookback_days}d</span>
+          </p>
         </motion.div>
-      </motion.div>
+        </motion.div>
+      </div>
 
       {warning && (
         <motion.div
@@ -147,11 +147,10 @@ export default function Results({ result, onReset }: ResultsProps) {
       )}
 
       {articles.length > 0 && (
-        <section>
-          <div className="articles-head">
-            <h3>The headlines</h3>
-            <span className="articles-count">{articles.length}</span>
-          </div>
+        <div className="articles-wrap">
+          <span className="panel-legend">
+            Headlines · <span className="articles-count-inline">{articles.length}</span>
+          </span>
           <motion.ul
             className="articles"
             variants={container}
@@ -162,7 +161,7 @@ export default function Results({ result, onReset }: ResultsProps) {
               <ArticleCard key={article.article_id} article={article} />
             ))}
           </motion.ul>
-        </section>
+        </div>
       )}
 
       <footer className="results-footer">

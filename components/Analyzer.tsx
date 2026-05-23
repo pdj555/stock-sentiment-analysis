@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCallback, useState } from "react";
 import Hero from "./Hero";
 import Results from "./Results";
@@ -12,6 +12,7 @@ type Status = "idle" | "loading" | "done" | "error";
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 export default function Analyzer() {
+  const reduceMotion = useReducedMotion();
   const [status, setStatus] = useState<Status>("idle");
   const [ticker, setTicker] = useState("");
   const [activeTicker, setActiveTicker] = useState("");
@@ -64,9 +65,9 @@ export default function Analyzer() {
         {status === "done" && result ? (
           <motion.div
             key="results"
-            initial={{ opacity: 0, y: 26 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 26 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -20 }}
             transition={{ duration: 0.55, ease: EASE }}
           >
             <Results result={result} onReset={reset} />
@@ -74,11 +75,11 @@ export default function Analyzer() {
         ) : (
           <motion.div
             key="hero"
-            initial={{ opacity: 0 }}
+            initial={reduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, y: -24 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -24 }}
             transition={{ duration: 0.5, ease: EASE }}
-            style={{ display: "flex", flex: 1 }}
+            style={{ display: "flex", flex: 1, width: "100%" }}
           >
             <Hero
               ticker={ticker}

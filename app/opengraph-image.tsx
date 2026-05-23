@@ -15,13 +15,11 @@ export default async function OgImage() {
           flexDirection: "column",
           justifyContent: "space-between",
           padding: "84px 96px",
-          background: "#0d0c0a",
-          backgroundImage: [
-            "radial-gradient(ellipse 75% 60% at 50% -8%, rgba(201, 169, 110, 0.32), transparent 64%)",
-            "radial-gradient(ellipse 55% 50% at 92% 18%, rgba(122, 184, 160, 0.20), transparent 64%)",
-            "radial-gradient(ellipse 65% 55% at 8% 102%, rgba(201, 169, 110, 0.14), transparent 62%)",
-          ].join(", "),
-          color: "#f2efe9",
+          background: "#05080c",
+          backgroundImage:
+            "linear-gradient(rgba(60,60,60,0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(60,60,60,0.35) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          color: "#f5f5f5",
           fontFamily: "sans-serif",
           position: "relative",
         }}
@@ -34,20 +32,13 @@ export default async function OgImage() {
             fontSize: 22,
             letterSpacing: "0.32em",
             textTransform: "uppercase",
-            color: "#9e9890",
+            color: "#8b949e",
             fontWeight: 500,
           }}
         >
-          <div
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: 999,
-              background: "#c9a96e",
-              boxShadow: "0 0 18px rgba(201,169,110,0.55)",
-            }}
-          />
-          Sentiment
+          <div style={{ display: "flex", fontWeight: 600, color: "#a9daf7" }}>
+            Sentiment
+          </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column" }}>
@@ -59,7 +50,7 @@ export default async function OgImage() {
               fontSize: 22,
               letterSpacing: "0.22em",
               textTransform: "uppercase",
-              color: "#c9a96e",
+              color: "#5c6370",
               fontWeight: 500,
               marginBottom: 28,
             }}
@@ -68,8 +59,7 @@ export default async function OgImage() {
               style={{
                 width: 56,
                 height: 1,
-                background:
-                  "linear-gradient(90deg, #c9a96e, rgba(201,169,110,0))",
+                background: "rgba(169,218,247,0.4)",
               }}
             />
             Market intelligence
@@ -83,21 +73,13 @@ export default async function OgImage() {
               fontWeight: 600,
               lineHeight: 0.96,
               letterSpacing: "-0.035em",
-              color: "#f2efe9",
+              color: "#f5f5f5",
             }}
           >
             <div style={{ display: "flex" }}>Read the market</div>
             <div style={{ display: "flex", gap: 28 }}>
               <span>before it</span>
-              <span
-                style={{
-                  fontStyle: "italic",
-                  color: "#c9a96e",
-                  fontWeight: 500,
-                }}
-              >
-                moves.
-              </span>
+              <span style={{ color: "#a9daf7" }}>moves.</span>
             </div>
           </div>
 
@@ -106,7 +88,7 @@ export default async function OgImage() {
               marginTop: 38,
               fontSize: 30,
               lineHeight: 1.4,
-              color: "#9e9890",
+              color: "#8b949e",
               maxWidth: 760,
               display: "flex",
             }}
@@ -121,7 +103,7 @@ export default async function OgImage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            color: "#6b6560",
+            color: "#5c6370",
             fontSize: 22,
             letterSpacing: "0.04em",
           }}
@@ -134,9 +116,9 @@ export default async function OgImage() {
                   display: "flex",
                   padding: "10px 18px",
                   borderRadius: 999,
-                  border: "1px solid rgba(242,239,233,0.18)",
-                  background: "rgba(242,239,233,0.04)",
-                  color: "#f2efe9",
+                  border: "1px solid rgba(169,218,247,0.2)",
+                  background: "rgba(169,218,247,0.04)",
+                  color: "#1769ff",
                   fontWeight: 500,
                   letterSpacing: "0.08em",
                 }}
