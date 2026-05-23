@@ -4,16 +4,10 @@
  * Ported from `stock_sentiment/sentiment.py` and `openai_client.py`: one
  * structured-output request classifies every article in the batch, and the
  * response is validated and normalized before it is trusted.
- *
- * Requests run against an ordered provider chain (see `providers.ts`): the
- * primary provider is tried first and, on a fallback-eligible failure, the
- * next provider is attempted. This lets Ollama fail over to OpenRouter when it
- * is rate-limited, out of quota, or otherwise unavailable.
  */
 
 import { ConfigError, UpstreamError } from "./errors";
 import type { RawArticle } from "./news";
-import { isFallbackEligible, type Provider } from "./providers";
 import type { SentimentLabel } from "@/lib/types";
 
 export interface ArticleSentiment {
@@ -30,9 +24,7 @@ export interface ClassificationResult {
 }
 
 const REQUEST_TIMEOUT_MS = 45_000;
-// Per-provider retries for transient failures (5xx, network, timeout) only.
-// Quota/auth failures (429/403/401) fail over to the next provider immediately.
-const TRANSIENT_RETRIES = 2;
+const MAX_ATTEMPTS = 4;
 const MAX_OUTPUT_TOKENS = 900;
 
 const SENTIMENT_LABELS: readonly SentimentLabel[] = [
@@ -109,40 +101,24 @@ function extractOutputText(response: unknown): string {
   return chunks.join("\n").trim();
 }
 
-/** A provider request that failed; `status` is null for a network/timeout. */
-class ProviderError extends Error {
-  constructor(readonly status: number | null) {
-    super(describeStatus(status));
-    this.name = "ProviderError";
-  }
-}
+async function callResponsesApi(
+  url: string,
+  apiKey: string,
+  body: unknown,
+): Promise<unknown> {
+  let lastError = "The model request failed after several retries.";
 
-/** Short, user-facing reason for a provider failure. */
-function describeStatus(status: number | null): string {
-  if (status === null) return "timed out";
-  if (status === 401 || status === 403) return `key rejected (HTTP ${status})`;
-  if (status === 429) return `rate limited (HTTP ${status})`;
-  if (status >= 500) return `service error (HTTP ${status})`;
-  return `HTTP ${status}`;
-}
-
-/**
- * POST the request body to one provider's `/responses` endpoint, retrying only
- * transient failures (5xx, network, timeout). Returns the parsed JSON payload,
- * or throws a `ProviderError`.
- */
-async function callProvider(provider: Provider, body: unknown): Promise<unknown> {
-  const url = `${provider.baseUrl.replace(/\/+$/, "")}/responses`;
-
-  for (let attempt = 0; ; attempt += 1) {
-    if (attempt > 0) await sleep(Math.min(2_000, 400 * 2 ** attempt));
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) {
+      await sleep(Math.min(8_000, 600 * 2 ** attempt));
+    }
 
     let response: Response;
     try {
       response = await fetch(url, {
         method: "POST",
         headers: {
-          authorization: `Bearer ${provider.apiKey}`,
+          authorization: `Bearer ${apiKey}`,
           "content-type": "application/json",
         },
         body: JSON.stringify(body),
@@ -150,64 +126,48 @@ async function callProvider(provider: Provider, body: unknown): Promise<unknown>
         cache: "no-store",
       });
     } catch {
-      if (attempt < TRANSIENT_RETRIES) continue;
-      throw new ProviderError(null);
+      lastError = "The request to the model timed out.";
+      continue;
     }
 
-    if (response.ok) return response.json();
-    if (response.status >= 500 && attempt < TRANSIENT_RETRIES) continue;
-    throw new ProviderError(response.status);
-  }
-}
-
-/**
- * Try each provider in order, returning the first success. A fallback-eligible
- * failure (auth, quota, 5xx, timeout) advances to the next provider; anything
- * else — or an exhausted chain — surfaces the failure.
- */
-async function classifyWithFallback(
-  providers: Provider[],
-  buildBody: (model: string) => unknown,
-): Promise<unknown> {
-  const failures: string[] = [];
-
-  for (let i = 0; i < providers.length; i += 1) {
-    const provider = providers[i];
-    try {
-      return await callProvider(provider, buildBody(provider.model));
-    } catch (error) {
-      const { status, message } = error as ProviderError;
-      failures.push(`${provider.name}: ${message}`);
-
-      const eligible = status === null || isFallbackEligible(status);
-      if (eligible && i < providers.length - 1) continue;
-
-      if (providers.length === 1 && (status === 401 || status === 403)) {
-        throw new ConfigError(
-          "The API key was rejected. Check OLLAMA_API_KEY / OPENROUTER_API_KEY (or OPENAI_API_KEY) in your project settings.",
-        );
-      }
-      throw new UpstreamError(`The AI request failed — ${failures.join("; ")}.`);
+    if (response.ok) {
+      return response.json();
     }
+
+    if (response.status === 401 || response.status === 403) {
+      throw new ConfigError(
+        "The API key was rejected. Check OLLAMA_API_KEY (or OPENAI_API_KEY) in your Vercel project settings.",
+      );
+    }
+
+    if (response.status === 429 || response.status >= 500) {
+      lastError = `The model service is busy (HTTP ${response.status}).`;
+      continue;
+    }
+
+    throw new UpstreamError(
+      `The model request failed (HTTP ${response.status}).`,
+    );
   }
 
-  // Unreachable: classifyArticles rejects an empty provider list up front.
-  throw new UpstreamError("No AI provider was available.");
+  throw new UpstreamError(lastError);
 }
 
 export async function classifyArticles(options: {
   ticker: string;
   articles: RawArticle[];
-  providers: Provider[];
+  apiKey: string;
+  model: string;
+  baseUrl: string;
 }): Promise<ClassificationResult> {
-  const { ticker, articles, providers } = options;
+  const { ticker, articles, apiKey, model, baseUrl } = options;
 
   if (articles.length === 0) {
     return { results: [], warnings: [] };
   }
-  if (providers.length === 0) {
+  if (!apiKey) {
     throw new ConfigError(
-      "Missing OLLAMA_API_KEY / OPENROUTER_API_KEY (or OPENAI_API_KEY). Add one to the project's environment variables, then try again.",
+      "Missing OLLAMA_API_KEY (or OPENAI_API_KEY). Add it to the project's environment variables, then try again.",
     );
   }
 
@@ -234,7 +194,7 @@ export async function classifyArticles(options: {
     })),
   };
 
-  const buildBody = (model: string) => ({
+  const body = {
     model,
     input: [
       { role: "system", content: system },
@@ -249,9 +209,13 @@ export async function classifyArticles(options: {
       },
     },
     max_output_tokens: MAX_OUTPUT_TOKENS,
-  });
+  };
 
-  const response = await classifyWithFallback(providers, buildBody);
+  const response = await callResponsesApi(
+    `${baseUrl.replace(/\/+$/, "")}/responses`,
+    apiKey,
+    body,
+  );
 
   const text = extractOutputText(response);
   if (!text) {
