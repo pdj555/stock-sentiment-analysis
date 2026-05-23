@@ -64,8 +64,8 @@ UI_HTML = """<!doctype html>
         margin: 0;
         min-height: 100%;
         background: var(--backdrop);
-        color: var(--primary);
-        font-family: var(--mono);
+        color: var(--text);
+        font-family: var(--sans);
         font-size: 16px;
       }
 
@@ -78,8 +78,9 @@ UI_HTML = """<!doctype html>
         background-color: var(--backdrop);
         background-image:
           linear-gradient(var(--grid) 1px, transparent 1px),
-          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-        background-size: 48px 48px;
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+          radial-gradient(ellipse 70% 55% at 50% 38%, transparent 0%, var(--backdrop) 78%);
+        background-size: 40px 40px, 40px 40px, 100% 100%;
       }
 
       a {
@@ -93,7 +94,9 @@ UI_HTML = """<!doctype html>
         gap: 12px;
         max-width: 1180px;
         margin: 0 auto;
-        padding: 18px 16px 8px;
+        padding: 0 16px;
+        min-height: 52px;
+        border-bottom: 2px solid var(--primary);
       }
 
       .nav-left {
@@ -114,10 +117,10 @@ UI_HTML = """<!doctype html>
       }
 
       .brand {
-        font-family: var(--mono);
-        font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 0.04em;
+        font-family: var(--sans);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
         color: var(--plain);
         text-align: center;
       }
@@ -133,54 +136,59 @@ UI_HTML = """<!doctype html>
       main {
         max-width: 1180px;
         margin: 0 auto;
-        padding: 8px 16px 48px;
-        text-align: left;
+        padding: clamp(16px, 3vh, 32px) 16px 48px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: calc(100dvh - 52px);
       }
 
       .hero-panel {
+        position: relative;
+        width: 100%;
+        max-width: 640px;
         border: 2px solid var(--primary);
-        border-radius: 6px;
-        padding: clamp(20px, 4vw, 32px);
+        border-radius: 4px;
+        padding: clamp(48px, 7vw, 64px) clamp(24px, 5vw, 40px)
+          clamp(32px, 5vw, 44px);
+        background: rgba(5, 8, 12, 0.82);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+        text-align: center;
       }
 
       .nous-title {
         margin: 0;
-        font-family: var(--mono);
-        font-weight: 700;
-        font-size: clamp(2.75rem, 11vw, 4.25rem);
-        line-height: 0.92;
-        letter-spacing: -0.03em;
+        font-family: var(--sans);
+        font-weight: 600;
+        font-size: clamp(2.75rem, 9vw, 4.25rem);
+        line-height: 0.95;
+        letter-spacing: -0.045em;
         color: var(--primary);
       }
 
       .nous-section {
-        margin: 14px 0 0;
-        font-family: var(--mono);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--primary);
+        display: none;
       }
 
       h1.hero-prompt {
-        margin: 4px 0 0;
-        max-width: 28ch;
+        margin: 18px auto 0;
+        max-width: 26ch;
         font-family: var(--sans);
-        font-size: clamp(1.05rem, 2.4vw, 1.25rem);
+        font-size: clamp(1.05rem, 2.4vw, 1.22rem);
         font-weight: 400;
-        line-height: 1.35;
+        line-height: 1.45;
         letter-spacing: -0.02em;
         color: var(--plain);
+        opacity: 0.76;
       }
 
       .form-row {
         display: flex;
         align-items: center;
         gap: 10px;
-        margin-top: 16px;
-        max-width: 560px;
-        padding: 10px 12px;
+        margin: 24px auto 0;
+        max-width: 420px;
+        padding: 12px 14px;
         border: 2px solid var(--primary);
         border-radius: 6px;
         background: var(--bg-raise);
@@ -461,7 +469,6 @@ UI_HTML = """<!doctype html>
     <main>
       <section class="hero-panel">
         <h1 class="nous-title">Sentiment</h1>
-        <p class="nous-section">Ticker query</p>
         <h2 class="hero-prompt">What ticker should we read?</h2>
 
         <form id="analyze-form" class="form-row">

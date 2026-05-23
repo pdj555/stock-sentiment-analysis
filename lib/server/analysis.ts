@@ -9,6 +9,7 @@
 import { ConfigError } from "./errors";
 import { fetchNews, type NewsSource, type RawArticle } from "./news";
 import { classifyArticles, type ArticleSentiment } from "./openai";
+import { resolveProviders } from "./providers";
 import type {
   AnalysisArticle,
   AnalysisResult,
@@ -21,8 +22,6 @@ const MAX_ARTICLES = 18;
 const HALF_LIFE_HOURS = 24;
 const SCORE_THRESHOLD = 0.15;
 const MIN_SIGNAL_CONFIDENCE = 0.55;
-
-const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
 const SOURCE_LABELS: Record<NewsSource, string> = {
   newsapi: "NewsAPI",
@@ -94,14 +93,11 @@ export async function analyze(rawTicker: string): Promise<AnalysisResult> {
 
   const env = (name: string) => (process.env[name] ?? "").trim();
   const newsApiKey = env("NEWSAPI_KEY");
-  const openAiKey = env("OLLAMA_API_KEY") || env("OPENAI_API_KEY");
-  const model = env("OPENAI_MODEL") || env("OLLAMA_MODEL");
-  const baseUrl =
-    env("OPENAI_BASE_URL") || env("OLLAMA_BASE_URL") || DEFAULT_BASE_URL;
+  const providers = resolveProviders(env).filter((provider) => provider.model);
 
-  if (!model) {
+  if (providers.length === 0) {
     throw new ConfigError(
-      "Missing OPENAI_MODEL (or OLLAMA_MODEL). Set it in the project's environment variables to the model you want to use.",
+      "Missing AI provider config. Set OLLAMA_API_KEY (or OPENROUTER_API_KEY / OPENAI_API_KEY) plus a model, then try again.",
     );
   }
 
@@ -126,9 +122,7 @@ export async function analyze(rawTicker: string): Promise<AnalysisResult> {
   const { results, warnings: classificationWarnings } = await classifyArticles({
     ticker,
     articles,
-    apiKey: openAiKey,
-    model,
-    baseUrl,
+    providers,
   });
   warnings.push(...classificationWarnings);
 

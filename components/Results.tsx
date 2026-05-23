@@ -65,11 +65,12 @@ export default function Results({ result, onReset }: ResultsProps) {
       </header>
 
       <motion.section
-        className={`verdict tone-${signalTone}`}
+        className={`verdict nous-panel tone-${signalTone}`}
         initial={{ opacity: 0, y: 24, scale: 0.99 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.7, ease: EASE }}
       >
+        <span className="panel-legend">Signal analysis</span>
         <ScoreGauge score={summary.score} tone={signalTone} />
 
         <div className="verdict-main">
@@ -85,12 +86,14 @@ export default function Results({ result, onReset }: ResultsProps) {
         </div>
       </motion.section>
 
-      <motion.div
-        className={`stats-panel tone-${signalTone}`}
-        variants={container}
-        initial="hidden"
-        animate="show"
-      >
+      <div className="stats-wrap">
+        <span className="panel-legend">Metrics</span>
+        <motion.div
+          className={`stats-panel tone-${signalTone}`}
+          variants={container}
+          initial="hidden"
+          animate="show"
+        >
         <motion.div className={`stats-panel-item tone-${signalTone}`} variants={item}>
           <p className="stat-line">
             Score:{" "}
@@ -115,7 +118,8 @@ export default function Results({ result, onReset }: ResultsProps) {
             <span className="stat-value">{summary.lookback_days}d</span>
           </p>
         </motion.div>
-      </motion.div>
+        </motion.div>
+      </div>
 
       {warning && (
         <motion.div
@@ -143,11 +147,10 @@ export default function Results({ result, onReset }: ResultsProps) {
       )}
 
       {articles.length > 0 && (
-        <section>
-          <div className="articles-head">
-            <h3>Headlines</h3>
-            <span className="articles-count">{articles.length}</span>
-          </div>
+        <div className="articles-wrap">
+          <span className="panel-legend">
+            Headlines · <span className="articles-count-inline">{articles.length}</span>
+          </span>
           <motion.ul
             className="articles"
             variants={container}
@@ -158,7 +161,7 @@ export default function Results({ result, onReset }: ResultsProps) {
               <ArticleCard key={article.article_id} article={article} />
             ))}
           </motion.ul>
-        </section>
+        </div>
       )}
 
       <footer className="results-footer">

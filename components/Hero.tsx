@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import TickerInput from "./TickerInput";
 
 type HeroStatus = "idle" | "loading" | "error";
@@ -27,17 +27,17 @@ export default function Hero({
   onClearError,
 }: HeroProps) {
   const loading = status === "loading";
+  const reduceMotion = useReducedMotion();
 
   return (
     <div className="hero">
       <motion.section
         className="nous-panel hero-panel"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        initial={reduceMotion ? false : { y: 16 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
       >
         <h1 className="nous-title">Sentiment</h1>
-        <p className="nous-section">Ticker query</p>
 
         <p className="hero-prompt">What ticker should we read?</p>
 
@@ -51,6 +51,7 @@ export default function Hero({
         </div>
 
         <div className="chips">
+          <p className="chips-label">Examples</p>
           {CHIPS.map((symbol) => (
             <button
               key={symbol}

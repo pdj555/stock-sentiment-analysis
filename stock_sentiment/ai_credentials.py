@@ -5,7 +5,7 @@ import os
 from stock_sentiment import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 from stock_sentiment.errors import ConfigurationError
 
-DEFAULT_OLLAMA_BASE_URL = "https://ollama.com/api"
+DEFAULT_OLLAMA_BASE_URL = "https://ollama.com/v1"
 DEFAULT_OLLAMA_MODEL = "gpt-oss:120b"
 
 
