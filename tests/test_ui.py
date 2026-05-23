@@ -122,7 +122,7 @@ class _QuietRequestHandler(WSGIRequestHandler):
 
 class TestUi(unittest.TestCase):
     def test_ui_html_contains_primary_controls(self) -> None:
-        self.assertIn("Recent news in one read.", UI_HTML)
+        self.assertIn("What ticker should we read?", UI_HTML)
         self.assertIn('id="ticker"', UI_HTML)
         self.assertIn("/api/analyze", UI_HTML)
 
@@ -171,7 +171,7 @@ class TestUi(unittest.TestCase):
 
         self.assertEqual(status, "200 OK")
         self.assertTrue(headers["Content-Type"].startswith("text/html"))
-        self.assertIn("Stock Sentiment", payload["raw"])
+        self.assertIn("Sentiment", payload["raw"])
 
     def test_wsgi_app_returns_analysis_payload(self) -> None:
         app = create_app(lambda ticker: _fake_result())

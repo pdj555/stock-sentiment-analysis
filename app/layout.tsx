@@ -1,15 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { Ubuntu_Mono } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Playfair_Display } from "next/font/google";
 import Aurora from "@/components/Aurora";
 import MotionProvider from "@/components/MotionProvider";
+import Nav from "@/components/Nav";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
-const playfair = Playfair_Display({
+const ubuntuMono = Ubuntu_Mono({
   subsets: ["latin"],
-  variable: "--font-playfair",
+  weight: ["400", "700"],
+  variable: "--font-ubuntu-mono",
   display: "swap",
 });
 
@@ -46,7 +48,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d0c0a",
+  themeColor: "#05080c",
   width: "device-width",
   initialScale: 1,
 };
@@ -59,10 +61,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable} ${playfair.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${ubuntuMono.variable}`}
     >
       <body>
         <Aurora />
+        <Nav />
         <MotionProvider>{children}</MotionProvider>
       </body>
     </html>

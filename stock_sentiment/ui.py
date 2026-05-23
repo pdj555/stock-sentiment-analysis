@@ -30,18 +30,29 @@ UI_HTML = """<!doctype html>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Stock Sentiment</title>
+    <title>Sentiment</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu+Mono:wght@700&display=swap" rel="stylesheet">
     <style>
       :root {
-        color-scheme: light;
-        --bg: #f4f6f5;
-        --bg-overlay: rgba(244, 246, 245, 0.78);
-        --line: rgba(10, 12, 11, 0.12);
-        --text: #0f1210;
-        --muted: #5c655f;
-        --positive: #175f49;
-        --negative: #8a342e;
-        --neutral: #6c5d1c;
+        color-scheme: dark;
+        --backdrop: #05080c;
+        --bg-raise: #0a0f14;
+        --bg-elevated: #0d1218;
+        --plain: #ffffff;
+        --primary: #a9daf7;
+        --primary-dim: #1769ff;
+        --grid: rgba(60, 60, 60, 0.55);
+        --text: #f5f5f5;
+        --muted: #8b949e;
+        --faint: #5c6370;
+        --border: rgba(169, 218, 247, 0.14);
+        --positive: #6ee7b7;
+        --negative: #fca5a5;
+        --neutral: var(--primary);
+        --mono: "Ubuntu Mono", ui-monospace, monospace;
+        --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
       }
 
       * {
@@ -52,200 +63,326 @@ UI_HTML = """<!doctype html>
       body {
         margin: 0;
         min-height: 100%;
-        background: var(--bg);
-        color: var(--text);
-        font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif;
-        letter-spacing: 0;
+        background: var(--backdrop);
+        color: var(--primary);
+        font-family: var(--mono);
+        font-size: 16px;
       }
 
       body::before {
         content: "";
         position: fixed;
         inset: 0;
-        z-index: -2;
-        background: url("https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1800&q=80")
-          68% center / cover no-repeat;
-        opacity: 0.28;
-        filter: saturate(0.92) contrast(1.08);
-        transform: scale(1.02);
-      }
-
-      body::after {
-        content: "";
-        position: fixed;
-        inset: 0;
         z-index: -1;
-        background: var(--bg-overlay);
-        backdrop-filter: blur(3px);
+        pointer-events: none;
+        background-color: var(--backdrop);
+        background-image:
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-size: 48px 48px;
       }
 
       a {
         color: inherit;
       }
 
-      main {
-        max-width: 940px;
+      .nav {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 12px;
+        max-width: 1180px;
         margin: 0 auto;
-        padding: 28px 20px 56px;
+        padding: 18px 16px 8px;
       }
 
-      .topline {
-        display: grid;
-        gap: 10px;
-        padding-bottom: 22px;
-        border-bottom: 1px solid var(--line);
+      .nav-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .nav-meta {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--plain);
+        text-transform: lowercase;
+      }
+
+      .nav-meta-sep {
+        color: var(--faint);
       }
 
       .brand {
-        font-size: 14px;
+        font-family: var(--mono);
+        font-size: 13px;
         font-weight: 700;
+        letter-spacing: 0.04em;
+        color: var(--plain);
+        text-align: center;
       }
 
-      h1 {
+      .nav-tag {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--plain);
+        text-transform: lowercase;
+        text-align: right;
+      }
+
+      main {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 8px 16px 48px;
+        text-align: left;
+      }
+
+      .hero-panel {
+        border: 2px solid var(--primary);
+        border-radius: 6px;
+        padding: clamp(20px, 4vw, 32px);
+      }
+
+      .nous-title {
         margin: 0;
-        max-width: 11ch;
-        font-size: 36px;
-        line-height: 1.02;
+        font-family: var(--mono);
         font-weight: 700;
+        font-size: clamp(2.75rem, 11vw, 4.25rem);
+        line-height: 0.92;
+        letter-spacing: -0.03em;
+        color: transparent;
+        background-image: repeating-linear-gradient(
+          180deg,
+          #a9daf7 0,
+          #a9daf7 5px,
+          rgba(5, 8, 12, 0.92) 5px,
+          rgba(5, 8, 12, 0.92) 10px
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+      }
+
+      .nous-section {
+        margin: 14px 0 0;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--primary);
+      }
+
+      h1.hero-prompt {
+        margin: 4px 0 0;
+        max-width: 28ch;
+        font-family: var(--sans);
+        font-size: clamp(1.05rem, 2.4vw, 1.25rem);
+        font-weight: 400;
+        line-height: 1.35;
+        letter-spacing: -0.02em;
+        color: var(--plain);
       }
 
       .form-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        display: flex;
+        align-items: center;
         gap: 10px;
-        align-items: end;
-        margin-top: 28px;
+        margin-top: 16px;
+        max-width: 560px;
+        padding: 10px 12px;
+        border: 2px solid var(--primary);
+        border-radius: 6px;
+        background: var(--bg-raise);
       }
 
       label {
-        display: block;
-        margin-bottom: 8px;
-        font-size: 13px;
-        color: var(--muted);
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
       }
 
       input {
-        width: 100%;
-        height: 56px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 0 16px;
-        background: rgba(255, 255, 255, 0.72);
-        color: var(--text);
-        font-size: 24px;
-        font-weight: 600;
-        text-transform: uppercase;
-        outline: none;
-        transition: border-color 0.16s ease, background-color 0.16s ease;
-      }
-
-      input:focus {
-        border-color: rgba(10, 12, 11, 0.3);
-        background: rgba(255, 255, 255, 0.9);
-      }
-
-      button {
-        height: 56px;
-        min-width: 128px;
+        flex: 1;
+        min-width: 0;
         border: 0;
-        border-radius: 8px;
-        padding: 0 20px;
-        background: var(--text);
-        color: #f8faf8;
-        font-size: 16px;
-        font-weight: 600;
+        background: transparent;
+        outline: none;
+        color: var(--plain);
+        font-family: var(--mono);
+        font-size: 14px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      input::placeholder {
+        color: var(--faint);
+      }
+
+      button[type="submit"] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        border: 2px solid var(--primary);
+        border-radius: 6px;
+        padding: 0;
+        background: transparent;
+        color: var(--primary);
+        font-size: 13px;
+        font-weight: 700;
         cursor: pointer;
-        transition: transform 0.16s ease, opacity 0.16s ease;
       }
 
-      button:hover {
-        transform: translateY(-1px);
-      }
-
-      button:disabled {
-        opacity: 0.68;
+      button[type="submit"]:disabled {
+        opacity: 0.45;
         cursor: wait;
-        transform: none;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .chip {
+        padding: 6px 12px;
+        border: 2px solid var(--primary);
+        border-radius: 6px;
+        background: transparent;
+        color: var(--primary);
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+      }
+
+      .chip:hover:not(:disabled) {
+        background: var(--primary);
+        color: var(--backdrop);
       }
 
       .status-line {
-        min-height: 22px;
-        margin: 12px 0 0;
+        min-height: 20px;
+        margin: 16px 0 0;
+        font-family: var(--mono);
+        font-size: 14px;
+        color: var(--primary-dim);
+        text-transform: lowercase;
+      }
+
+      .status-line.loading {
+        animation: pulse 1.6s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 0.45; }
+        50% { opacity: 1; }
+      }
+
+      .results {
+        margin-top: 32px;
+        text-align: left;
+      }
+
+      .state {
+        min-height: 48px;
         color: var(--muted);
         font-size: 14px;
       }
 
-      .results {
-        margin-top: 28px;
-        border-top: 1px solid var(--line);
-      }
-
-      .state {
-        display: flex;
-        align-items: center;
-        min-height: 96px;
-        color: var(--muted);
-        font-size: 15px;
-      }
-
       .state.error {
+        padding: 14px 16px;
+        border: 1px solid rgba(252, 165, 165, 0.2);
+        border-radius: 8px;
         color: var(--negative);
+        background: rgba(252, 165, 165, 0.04);
       }
 
       .summary-grid {
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 18px;
-        padding: 20px 0;
-        border-bottom: 1px solid var(--line);
+        gap: 0;
+        border: 2px solid var(--primary);
+        border-radius: 4px;
+        background: var(--bg-raise);
+        overflow: hidden;
         animation: rise 0.24s ease;
       }
 
       .summary-warning {
         margin: 14px 0 0;
-        font-size: 14px;
-        line-height: 1.4;
-        color: var(--negative);
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--muted);
+        background: rgba(169, 218, 247, 0.03);
       }
 
       .metric {
         min-width: 0;
+        padding: 14px 16px;
+        border-right: 1px solid var(--border);
+      }
+
+      .metric:last-child {
+        border-right: 0;
       }
 
       .metric dt {
         margin: 0;
-        font-size: 12px;
-        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
+        color: var(--primary);
       }
 
       .metric dd {
         margin: 6px 0 0;
-        font-size: 22px;
+        font-family: var(--mono);
+        font-size: 1rem;
         font-weight: 700;
-        line-height: 1.1;
+        line-height: 1.2;
+        color: var(--plain);
       }
 
       .articles {
         list-style: none;
-        margin: 0;
+        margin: 16px 0 0;
         padding: 0;
+        border: 2px solid var(--primary);
+        border-radius: 4px;
+        background: var(--bg-raise);
+        overflow: hidden;
       }
 
       .article {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
-        gap: 18px;
-        padding: 18px 0;
-        border-bottom: 1px solid var(--line);
+        gap: 14px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--border);
         animation: rise 0.24s ease;
+      }
+
+      .article:last-child {
+        border-bottom: 0;
       }
 
       .article-title {
         margin: 0;
-        font-size: 19px;
-        line-height: 1.28;
-        font-weight: 600;
+        font-size: 14px;
+        line-height: 1.45;
+        font-weight: 500;
       }
 
       .article-title a {
@@ -253,147 +390,119 @@ UI_HTML = """<!doctype html>
       }
 
       .article-title a:hover {
-        text-decoration: underline;
+        color: var(--primary);
       }
 
       .article-meta {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px 14px;
+        gap: 8px 12px;
         margin-top: 8px;
-        color: var(--muted);
-        font-size: 13px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--faint);
       }
 
       .article-reason {
         max-width: 64ch;
-        margin-top: 10px;
-        font-size: 15px;
-        line-height: 1.45;
+        margin-top: 8px;
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--muted);
       }
 
       .badge {
         align-self: start;
-        border-radius: 999px;
-        padding: 6px 9px;
-        font-size: 12px;
+        border-radius: 4px;
+        padding: 3px 8px;
+        font-family: var(--mono);
+        font-size: 10px;
         font-weight: 700;
-        background: rgba(10, 12, 11, 0.06);
-        color: var(--text);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        border: 1px solid var(--border);
+        background: rgba(169, 218, 247, 0.03);
       }
 
-      .badge.positive {
-        background: rgba(23, 95, 73, 0.12);
-        color: var(--positive);
-      }
-
-      .badge.negative {
-        background: rgba(138, 52, 46, 0.12);
-        color: var(--negative);
-      }
-
-      .badge.neutral {
-        background: rgba(108, 93, 28, 0.12);
-        color: var(--neutral);
-      }
+      .badge.positive { color: var(--positive); }
+      .badge.negative { color: var(--negative); }
+      .badge.neutral { color: var(--neutral); }
 
       .footer {
-        margin-top: 26px;
-        color: var(--muted);
-        font-size: 13px;
+        margin-top: 24px;
+        color: var(--faint);
+        font-size: 11px;
+        text-align: center;
+        text-transform: lowercase;
       }
 
       @keyframes rise {
-        from {
-          opacity: 0;
-          transform: translateY(8px);
-        }
-
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
       }
 
       @media (max-width: 820px) {
-        h1 {
-          font-size: 30px;
-        }
-
-        .summary-grid {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
+        .summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .metric:nth-child(3) { border-right: 0; }
       }
 
       @media (max-width: 680px) {
-        main {
-          padding: 22px 16px 44px;
-        }
-
-        .form-row,
-        .article {
-          grid-template-columns: minmax(0, 1fr);
-        }
-
-        button {
-          width: 100%;
-        }
-
-        .summary-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-      }
-
-      @media (max-width: 460px) {
-        h1 {
-          font-size: 26px;
-        }
-
-        input {
-          font-size: 20px;
-        }
-
-        .metric dd {
-          font-size: 18px;
-        }
-
-        .article-title {
-          font-size: 17px;
-        }
+        main { padding: 32px 16px 48px; }
+        .form-row { flex-wrap: wrap; border-radius: 12px; }
+        input { flex-basis: 100%; padding: 4px 8px; }
+        button[type="submit"] { width: 100%; border-radius: 8px; }
+        .article { grid-template-columns: minmax(0, 1fr); }
+        .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       }
     </style>
   </head>
   <body>
-    <main>
-      <header class="topline">
-        <div class="brand">Stock Sentiment</div>
-        <h1>Recent news in one read.</h1>
-      </header>
+    <header class="nav">
+      <div class="nav-left">
+        <span class="nav-meta">lookback: 3d</span>
+        <span class="nav-meta-sep">·</span>
+        <span class="nav-meta">news + rss</span>
+      </div>
+      <div class="brand">Sentiment</div>
+      <span class="nav-tag">research preview</span>
+    </header>
 
-      <form id="analyze-form" class="form-row">
-        <div>
-          <label for="ticker">Ticker</label>
-          <input
-            id="ticker"
-            name="ticker"
-            placeholder="TSLA"
-            autocomplete="off"
-            autocapitalize="characters"
-            spellcheck="false"
-            maxlength="24"
-          >
-        </div>
-        <button id="submit-button" type="submit">Analyze</button>
+    <main>
+      <section class="hero-panel">
+        <h1 class="nous-title">Sentiment</h1>
+        <p class="nous-section">Ticker query</p>
+        <h2 class="hero-prompt">What ticker should we read?</h2>
+
+        <form id="analyze-form" class="form-row">
+        <label for="ticker">Ticker</label>
+        <input
+          id="ticker"
+          name="ticker"
+          placeholder="Enter a ticker"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          maxlength="24"
+        >
+        <button id="submit-button" type="submit" aria-label="Analyze">↑</button>
       </form>
 
+      <div class="chips" id="chips">
+        <button type="button" class="chip" data-ticker="AAPL">AAPL</button>
+        <button type="button" class="chip" data-ticker="NVDA">NVDA</button>
+        <button type="button" class="chip" data-ticker="TSLA">TSLA</button>
+        <button type="button" class="chip" data-ticker="AMD">AMD</button>
+      </div>
+
       <p id="status-line" class="status-line"></p>
+      </section>
 
       <section class="results" aria-live="polite">
-        <div id="summary" class="state">Start with a ticker.</div>
+        <div id="summary" class="state"></div>
         <ul id="articles" class="articles"></ul>
       </section>
 
-      <p class="footer">Not financial advice.</p>
+      <p class="footer">for research only — not financial advice</p>
     </main>
 
     <script>
@@ -403,6 +512,17 @@ UI_HTML = """<!doctype html>
       const statusLine = document.getElementById("status-line");
       const summary = document.getElementById("summary");
       const articles = document.getElementById("articles");
+      const chips = document.getElementById("chips");
+
+      chips.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-ticker]");
+        if (!button || submitButton.disabled) {
+          return;
+        }
+        const symbol = button.getAttribute("data-ticker");
+        tickerInput.value = symbol;
+        analyzeTicker(symbol);
+      });
 
       function escapeHtml(value) {
         return String(value ?? "")
@@ -536,7 +656,11 @@ UI_HTML = """<!doctype html>
 
       async function analyzeTicker(ticker) {
         submitButton.disabled = true;
-        statusLine.textContent = `Analyzing ${ticker}...`;
+        chips.querySelectorAll(".chip").forEach((chip) => {
+          chip.disabled = true;
+        });
+        statusLine.textContent = "loading...";
+        statusLine.className = "status-line loading";
 
         try {
           const response = await fetch("/api/analyze", {
@@ -562,6 +686,7 @@ UI_HTML = """<!doctype html>
           const coverage = articleCap > 0
             ? ` - ${analyzed} of ${articleCap} articles analyzed`
             : "";
+          statusLine.className = "status-line";
           statusLine.textContent = asOf
             ? `${sourceLabel} - ${windowDays}-day lookback${coverage} - as of ${asOf}`
             : `${sourceLabel} - ${windowDays}-day lookback${coverage}`;
@@ -570,9 +695,13 @@ UI_HTML = """<!doctype html>
             ? error.message
             : "The analysis could not load. Check your connection or restart the server, then try again.";
           renderError(message);
+          statusLine.className = "status-line";
           statusLine.textContent = message;
         } finally {
           submitButton.disabled = false;
+          chips.querySelectorAll(".chip").forEach((chip) => {
+            chip.disabled = false;
+          });
         }
       }
 
@@ -581,7 +710,8 @@ UI_HTML = """<!doctype html>
         const ticker = tickerInput.value.trim().toUpperCase();
         if (!ticker) {
           renderError("Ticker cannot be empty.");
-          statusLine.textContent = "Enter a ticker.";
+          statusLine.className = "status-line";
+          statusLine.textContent = "enter a ticker.";
           tickerInput.focus();
           return;
         }
@@ -591,7 +721,8 @@ UI_HTML = """<!doctype html>
 
       tickerInput.addEventListener("input", () => {
         if (summary.classList.contains("error")) {
-          renderIdle("Start with a ticker.");
+          summary.className = "state";
+          summary.textContent = "";
           statusLine.textContent = "";
         }
       });

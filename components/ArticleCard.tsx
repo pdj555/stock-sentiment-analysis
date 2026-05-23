@@ -20,8 +20,6 @@ export default function ArticleCard({ article }: { article: AnalysisArticle }) {
 
   return (
     <motion.li className={`article tone-${articleTone}`} variants={itemVariants}>
-      <span className="article-accent" aria-hidden />
-
       <div className="article-body">
         <h4 className="article-title">
           {article.url ? (
