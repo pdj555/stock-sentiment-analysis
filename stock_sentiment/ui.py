@@ -150,16 +150,7 @@ UI_HTML = """<!doctype html>
         font-size: clamp(2.75rem, 11vw, 4.25rem);
         line-height: 0.92;
         letter-spacing: -0.03em;
-        color: transparent;
-        background-image: repeating-linear-gradient(
-          180deg,
-          #a9daf7 0,
-          #a9daf7 5px,
-          rgba(5, 8, 12, 0.92) 5px,
-          rgba(5, 8, 12, 0.92) 10px
-        );
-        -webkit-background-clip: text;
-        background-clip: text;
+        color: var(--primary);
       }
 
       .nous-section {
