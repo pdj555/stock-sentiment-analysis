@@ -5,8 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "test": "tsx --test lib/server/providers.test.ts lib/server/openai.test.ts"
+    "start": "next start"
   },
   "dependencies": {
     "botid": "^1.5.11",
@@ -22,7 +21,6 @@
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.4",
     "@types/react-dom": "^19.0.2",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }
 }

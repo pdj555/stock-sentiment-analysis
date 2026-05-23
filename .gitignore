@@ -24,9 +24,3 @@ next-env.d.ts
 .vercel
 .env*.local
 .playwright-mcp/
-
-# uv (stdlib-only project; lock file is local tooling noise)
-uv.lock
-
-# Dev screenshots at repo root
-/*.png

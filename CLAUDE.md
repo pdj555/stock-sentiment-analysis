@@ -28,7 +28,7 @@ OPENAI_MODEL=gpt-5-nano-2025-08-07
 OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-For Ollama Cloud (or any OpenAI-compatible endpoint), set `OLLAMA_API_KEY` and override the base URL and model. Ollama Cloud's OpenAI-compatible API lives at `https://ollama.com/v1` (no `api.` subdomain) and supports `/v1/responses` since Ollama v0.13.3; the client appends `/responses`. The model must be one Ollama hosts:
+For Ollama Cloud (or any OpenAI-compatible endpoint), set `OLLAMA_API_KEY` and override the base URL and model. Ollama Cloud's OpenAI-compatible API lives at `https://ollama.com/v1` (no `api.` subdomain) and supports `/v1/responses` since Ollama v0.13.3. The model must be one Ollama hosts:
 ```
 OLLAMA_API_KEY=your_ollama_key
 OPENAI_BASE_URL=https://ollama.com/v1
@@ -36,16 +36,6 @@ OPENAI_MODEL=gpt-oss:120b
 ```
 
 The Next.js web app and Python CLI both prefer `OLLAMA_*` over `OPENAI_*`.
-
-### OpenRouter fallback (web app)
-
-The web app tries providers in order — Ollama → OpenRouter → OpenAI — including only those whose key is set. If the primary fails over (rate limit, quota, auth, 5xx, or timeout), it automatically retries on the next provider. Add OpenRouter as a fallback with:
-```
-OPENROUTER_API_KEY=your_openrouter_key
-OPENROUTER_MODEL=openai/gpt-4o-mini   # default; must support structured output
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1   # default
-```
-Provider chain and fallback policy live in `lib/server/providers.ts`. The Python CLI is unchanged (Ollama/OpenAI only).
 
 ### GitHub Actions secrets
 
