@@ -1,4 +1,3 @@
-import { checkBotId } from "botid/server";
 import { NextResponse } from "next/server";
 import { analyze } from "@/lib/server/analysis";
 import { ConfigError, UpstreamError } from "@/lib/server/errors";
@@ -30,11 +29,6 @@ export async function POST(request: Request) {
       429,
       { "retry-after": String(limit.retryAfterSeconds) },
     );
-  }
-
-  const verification = await checkBotId();
-  if (verification.isBot) {
-    return errorResponse("Access denied.", 403);
   }
 
   let ticker: unknown;
