@@ -8,8 +8,7 @@
 
 import { ConfigError } from "./errors";
 import { fetchNews, type NewsSource, type RawArticle } from "./news";
-import { classifyArticles, type ArticleSentiment } from "./openai";
-import { resolveProviders } from "./providers";
+import { classifyArticles, type ArticleSentiment } from "./agent";
 import type {
   AnalysisArticle,
   AnalysisResult,
@@ -93,11 +92,10 @@ export async function analyze(rawTicker: string): Promise<AnalysisResult> {
 
   const env = (name: string) => (process.env[name] ?? "").trim();
   const newsApiKey = env("NEWSAPI_KEY");
-  const providers = resolveProviders(env).filter((provider) => provider.model);
 
-  if (providers.length === 0) {
+  if (!env("OLLAMA_API_KEY")) {
     throw new ConfigError(
-      "Missing AI provider config. Set OLLAMA_API_KEY (or OPENROUTER_API_KEY / OPENAI_API_KEY) plus a model, then try again.",
+      "Missing OLLAMA_API_KEY. Add your Ollama Cloud key to the project's environment variables, then try again.",
     );
   }
 
@@ -122,7 +120,6 @@ export async function analyze(rawTicker: string): Promise<AnalysisResult> {
   const { results, warnings: classificationWarnings } = await classifyArticles({
     ticker,
     articles,
-    providers,
   });
   warnings.push(...classificationWarnings);
 
