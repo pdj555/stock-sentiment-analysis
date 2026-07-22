@@ -97,7 +97,7 @@ export async function analyze(rawTicker: string): Promise<AnalysisResult> {
 
   if (providers.length === 0) {
     throw new ConfigError(
-      "Missing AI provider config. Set OLLAMA_API_KEY (or OPENROUTER_API_KEY / OPENAI_API_KEY) plus a model, then try again.",
+      "Missing AI provider config. Set AI_MODEL plus a key for its route (OLLAMA_API_KEY for a bare model id, AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN for a provider/model id), then try again.",
     );
   }
 

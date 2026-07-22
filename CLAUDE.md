@@ -35,17 +35,17 @@ OPENAI_BASE_URL=https://ollama.com/v1
 OPENAI_MODEL=gpt-oss:120b
 ```
 
-The Next.js web app and Python CLI both prefer `OLLAMA_*` over `OPENAI_*`.
+The Python CLI prefers `OLLAMA_*` over `OPENAI_*`.
 
-### OpenRouter fallback (web app)
+### Model routing (web app)
 
-The web app tries providers in order — Ollama → OpenRouter → OpenAI — including only those whose key is set. If the primary fails over (rate limit, quota, auth, 5xx, or timeout), it automatically retries on the next provider. Add OpenRouter as a fallback with:
+The web app picks its provider from the active model id: a bare id (`glm-5.2`, `gpt-oss:120b`) runs on cheap Ollama Cloud; a `provider/model` id (`anthropic/claude-sonnet-5`, `openai/gpt-5.6-sol`) runs on the Vercel AI Gateway. One knob selects it:
 ```
-OPENROUTER_API_KEY=your_openrouter_key
-OPENROUTER_MODEL=openai/gpt-4o-mini   # default; must support structured output
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1   # default
+AI_MODEL=glm-5.2                        # cheap Ollama default (bare id)
+# AI_MODEL=anthropic/claude-sonnet-5    # premium via the gateway (provider/model id)
+# AI_FALLBACK_MODEL=...                 # optional second route if the primary is capped/down
 ```
-Provider chain and fallback policy live in `lib/server/providers.ts`. The Python CLI is unchanged (Ollama/OpenAI only).
+Ollama ids need `OLLAMA_API_KEY`; gateway ids authenticate with `AI_GATEWAY_API_KEY`, or automatically with `VERCEL_OIDC_TOKEN` on Vercel. Anonymous requests only ever use `AI_MODEL`, so premium models never run on public traffic unless the operator sets them. `AI_MODEL` falls back to the older `OLLAMA_MODEL`/`OPENAI_MODEL` if unset. Routing lives in `lib/server/providers.ts`. The Python CLI is unchanged (Ollama/OpenAI only).
 
 ### GitHub Actions secrets
 

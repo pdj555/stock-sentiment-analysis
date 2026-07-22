@@ -83,6 +83,42 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+/** Strip a leading/trailing markdown code fence (```json … ```), if present. */
+function stripCodeFence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("```")) return trimmed;
+  return trimmed
+    .replace(/^```[^\n]*\n?/, "")
+    .replace(/```\s*$/, "")
+    .trim();
+}
+
+/**
+ * Coerce a parsed model response into an array of classification rows.
+ *
+ * The canonical shape is `{ results: [ { article_id, … } ] }` (gpt-oss). Models
+ * that ignore the JSON schema — GLM, for one — instead return an object keyed by
+ * article id (`{ a1: { … } }`). Both are accepted; the key becomes the
+ * article_id when the row omits it. Returns null for a non-object body (a bare
+ * string/number/null), which is a genuinely unusable response.
+ */
+function normalizeResults(parsed: unknown): unknown[] | null {
+  if (Array.isArray(parsed)) return parsed;
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const obj = parsed as Record<string, unknown>;
+  if (Array.isArray(obj.results)) return obj.results;
+
+  const container =
+    obj.results && typeof obj.results === "object" ? obj.results : obj;
+  return Object.entries(container as Record<string, unknown>).map(
+    ([key, value]) =>
+      value && typeof value === "object" && !Array.isArray(value)
+        ? { ...(value as Record<string, unknown>), article_id: (value as Record<string, unknown>).article_id ?? key }
+        : value,
+  );
+}
+
 /** Best-effort extraction of assistant text from a Responses API payload. */
 function extractOutputText(response: unknown): string {
   const payload = response as {
@@ -184,7 +220,7 @@ async function classifyWithFallback(
 
       if (providers.length === 1 && (status === 401 || status === 403)) {
         throw new ConfigError(
-          "The API key was rejected. Check OLLAMA_API_KEY / OPENROUTER_API_KEY (or OPENAI_API_KEY) in your project settings.",
+          "The API key was rejected. Check OLLAMA_API_KEY (or AI_GATEWAY_API_KEY / VERCEL_OIDC_TOKEN for a provider/model id) in your project settings.",
         );
       }
       throw new UpstreamError(`The AI request failed — ${failures.join("; ")}.`);
@@ -207,7 +243,7 @@ export async function classifyArticles(options: {
   }
   if (providers.length === 0) {
     throw new ConfigError(
-      "Missing OLLAMA_API_KEY / OPENROUTER_API_KEY (or OPENAI_API_KEY). Add one to the project's environment variables, then try again.",
+      "Missing AI provider config. Set AI_MODEL plus a key for its route (OLLAMA_API_KEY, or AI_GATEWAY_API_KEY / VERCEL_OIDC_TOKEN). Add one to the project's environment variables, then try again.",
     );
   }
 
@@ -262,15 +298,15 @@ export async function classifyArticles(options: {
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(stripCodeFence(text));
   } catch {
     throw new UpstreamError(
       "The model returned malformed data. Try again in a moment.",
     );
   }
 
-  const rawResults = (parsed as { results?: unknown })?.results;
-  if (!Array.isArray(rawResults)) {
+  const rawResults = normalizeResults(parsed);
+  if (rawResults === null) {
     throw new UpstreamError("The model response was missing its results.");
   }
 
