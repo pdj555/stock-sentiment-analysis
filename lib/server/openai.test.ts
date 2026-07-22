@@ -29,11 +29,11 @@ const OLLAMA: Provider = {
   baseUrl: "https://ollama.com/v1",
   model: "gpt-oss:120b",
 };
-const OPENROUTER: Provider = {
-  name: "openrouter",
+const GATEWAY: Provider = {
+  name: "gateway",
   apiKey: "k2",
-  baseUrl: "https://openrouter.ai/api/v1",
-  model: "openai/gpt-4o-mini",
+  baseUrl: "https://ai-gateway.vercel.sh/v1",
+  model: "anthropic/claude-sonnet-5",
 };
 
 const realFetch = globalThis.fetch;
@@ -52,7 +52,7 @@ function stubFetch(handler: (url: string) => Response) {
   return calls;
 }
 
-test("falls over from a rate-limited Ollama to OpenRouter", async () => {
+test("falls over from a rate-limited Ollama to the gateway", async () => {
   const calls = stubFetch((url) =>
     url.includes("ollama.com")
       ? new Response("rate limited", { status: 429 })
@@ -62,12 +62,12 @@ test("falls over from a rate-limited Ollama to OpenRouter", async () => {
   const result = await classifyArticles({
     ticker: "TSLA",
     articles: [ARTICLE],
-    providers: [OLLAMA, OPENROUTER],
+    providers: [OLLAMA, GATEWAY],
   });
 
   assert.equal(result.results[0].label, "positive");
   assert.ok(calls.some((c) => c.includes("ollama.com")), "tried ollama");
-  assert.ok(calls.some((c) => c.includes("openrouter.ai")), "tried openrouter");
+  assert.ok(calls.some((c) => c.includes("ai-gateway.vercel.sh")), "tried gateway");
 });
 
 test("a rejected primary key (401) fails over to the fallback", async () => {
@@ -80,19 +80,40 @@ test("a rejected primary key (401) fails over to the fallback", async () => {
   const result = await classifyArticles({
     ticker: "TSLA",
     articles: [ARTICLE],
-    providers: [OLLAMA, OPENROUTER],
+    providers: [OLLAMA, GATEWAY],
   });
   assert.equal(result.results[0].label, "positive");
+});
+
+test("a not-found model (404) on the primary fails over to the fallback", async () => {
+  const calls = stubFetch((url) =>
+    url.includes("ollama.com")
+      ? new Response(
+          JSON.stringify({ error: { message: 'model "gpt-5.5" not found', type: "not_found_error" } }),
+          { status: 404 },
+        )
+      : new Response(JSON.stringify(OK_PAYLOAD), { status: 200 }),
+  );
+
+  const result = await classifyArticles({
+    ticker: "TSLA",
+    articles: [ARTICLE],
+    providers: [OLLAMA, GATEWAY],
+  });
+
+  assert.equal(result.results[0].label, "positive");
+  assert.ok(calls.some((c) => c.includes("ollama.com")), "tried ollama");
+  assert.ok(calls.some((c) => c.includes("ai-gateway.vercel.sh")), "tried gateway");
 });
 
 test("400 from the primary is fatal and does not fall over", async () => {
   const calls = stubFetch(() => new Response("bad request", { status: 400 }));
 
   await assert.rejects(
-    classifyArticles({ ticker: "TSLA", articles: [ARTICLE], providers: [OLLAMA, OPENROUTER] }),
+    classifyArticles({ ticker: "TSLA", articles: [ARTICLE], providers: [OLLAMA, GATEWAY] }),
     UpstreamError,
   );
-  assert.ok(!calls.some((c) => c.includes("openrouter.ai")), "did not try fallback");
+  assert.ok(!calls.some((c) => c.includes("ai-gateway.vercel.sh")), "did not try fallback");
 });
 
 test("a single rejected key surfaces a ConfigError", async () => {
@@ -108,11 +129,56 @@ test("all providers failing surfaces a combined UpstreamError", async () => {
   stubFetch(() => new Response("rate limited", { status: 429 }));
 
   await assert.rejects(
-    classifyArticles({ ticker: "TSLA", articles: [ARTICLE], providers: [OLLAMA, OPENROUTER] }),
+    classifyArticles({ ticker: "TSLA", articles: [ARTICLE], providers: [OLLAMA, GATEWAY] }),
     (error: unknown) =>
       error instanceof UpstreamError &&
       error.message.includes("ollama") &&
-      error.message.includes("openrouter"),
+      error.message.includes("gateway"),
+  );
+});
+
+test("accepts a model that returns an article_id-keyed object (glm shape)", async () => {
+  const keyed = {
+    a1: { label: "positive", score: 0.6, confidence: 0.8, reason: "beat estimates" },
+  };
+  stubFetch(() => new Response(JSON.stringify({ output_text: JSON.stringify(keyed) }), { status: 200 }));
+
+  const result = await classifyArticles({
+    ticker: "TSLA",
+    articles: [ARTICLE],
+    providers: [OLLAMA],
+  });
+  assert.equal(result.results[0].articleId, "a1");
+  assert.equal(result.results[0].label, "positive");
+  assert.equal(result.results[0].score, 0.6);
+});
+
+test("strips a markdown code fence around the JSON", async () => {
+  const fenced =
+    "```json\n" +
+    JSON.stringify({
+      results: [
+        { article_id: "a1", label: "negative", score: -0.4, confidence: 0.7, reason: "probe" },
+      ],
+    }) +
+    "\n```";
+  stubFetch(() => new Response(JSON.stringify({ output_text: fenced }), { status: 200 }));
+
+  const result = await classifyArticles({
+    ticker: "TSLA",
+    articles: [ARTICLE],
+    providers: [OLLAMA],
+  });
+  assert.equal(result.results[0].label, "negative");
+});
+
+test("a non-object JSON body is still a missing-results error", async () => {
+  stubFetch(() => new Response(JSON.stringify({ output_text: '"just a string"' }), { status: 200 }));
+
+  await assert.rejects(
+    classifyArticles({ ticker: "TSLA", articles: [ARTICLE], providers: [OLLAMA] }),
+    (error: unknown) =>
+      error instanceof UpstreamError && error.message.includes("missing its results"),
   );
 });
 
