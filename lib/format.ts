@@ -1,4 +1,10 @@
-import type { EvidenceGrade, SentimentLabel, Signal, Tone } from "./types";
+import type {
+  EvidenceDriver,
+  EvidenceGrade,
+  SentimentLabel,
+  Signal,
+  Tone,
+} from "./types";
 
 const MINUS = "−"; // proper minus sign
 
@@ -55,6 +61,12 @@ export const SIGNAL_COPY = {
 
 export function evidenceGradeLabel(grade: EvidenceGrade): string {
   return grade.charAt(0).toUpperCase() + grade.slice(1);
+}
+
+export function evidenceDirectionLabel(
+  direction: EvidenceDriver["direction"],
+): "Bullish" | "Bearish" {
+  return direction === "positive" ? "Bullish" : "Bearish";
 }
 
 export const LABEL_COPY: Record<SentimentLabel, string> = {

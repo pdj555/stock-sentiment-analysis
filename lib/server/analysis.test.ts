@@ -92,3 +92,40 @@ test("drivers retain the strongest counter-direction", () => {
     new Set(["positive", "negative"]),
   );
 });
+
+test("equal-impact drivers use article id order and retain a counter-direction", () => {
+  const ids = ["a3", "a1", "a2", "a4"];
+  const articles = ids.map((id) => ({
+    ...article(1),
+    articleId: id,
+    title: `Headline ${id}`,
+    url: `https://example.com/${id}`,
+    publishedAt: AS_OF,
+  }));
+  const results: ArticleSentiment[] = ids.map((articleId) => ({
+    articleId,
+    label: articleId === "a2" ? "negative" : "positive",
+    score: articleId === "a2" ? -0.8 : 0.8,
+    confidence: 0.8,
+    reason: "Equal-impact evidence",
+    classified: true,
+  }));
+
+  const result = summarizeAnalysis({
+    ticker: "TEST",
+    source: "google-rss",
+    articles,
+    results,
+    warnings: [],
+    asOf: AS_OF,
+  });
+
+  assert.deepEqual(
+    result.evidence.drivers.map((driver) => driver.article_id),
+    ["a1", "a2", "a3"],
+  );
+  assert.deepEqual(
+    result.evidence.drivers.map((driver) => driver.direction),
+    ["positive", "negative", "positive"],
+  );
+});

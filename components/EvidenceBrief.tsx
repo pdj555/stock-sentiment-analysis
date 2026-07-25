@@ -1,4 +1,5 @@
 import {
+  evidenceDirectionLabel,
   evidenceGradeLabel,
   formatConfidence,
   SIGNAL_COPY,
@@ -46,7 +47,7 @@ export default function EvidenceBrief({ evidence, signal }: EvidenceBriefProps) 
             {evidence.drivers.map((driver) => (
               <li key={driver.article_id} className={`driver-${driver.direction}`}>
                 <span className="driver-direction">
-                  {driver.direction === "positive" ? "Supports" : "Counters"}
+                  {evidenceDirectionLabel(driver.direction)}
                 </span>
                 <div>
                   <h5>

@@ -555,6 +555,24 @@ UI_HTML = """<!doctype html>
         return `${Math.round(number * 100)}%`;
       }
 
+      function signalLabel(value) {
+        const labels = {
+          buy: "Bullish",
+          sell: "Bearish",
+          hold: "No edge",
+        };
+        return labels[value] || "No edge";
+      }
+
+      function evidenceGradeLabel(value) {
+        const labels = {
+          limited: "Limited",
+          moderate: "Moderate",
+          strong: "Strong",
+        };
+        return labels[value] || "Limited";
+      }
+
       function formatTime(value) {
         if (!value) {
           return "";
@@ -601,7 +619,7 @@ UI_HTML = """<!doctype html>
             </div>
             <div class="metric">
               <dt>Signal</dt>
-              <dd>${escapeHtml(summaryData.signal)}</dd>
+              <dd>${escapeHtml(signalLabel(summaryData.signal))}</dd>
             </div>
             <div class="metric">
               <dt>Score</dt>
@@ -617,7 +635,7 @@ UI_HTML = """<!doctype html>
             </div>
             <div class="metric">
               <dt>Evidence</dt>
-              <dd>${escapeHtml(evidenceData.grade)}</dd>
+              <dd>${escapeHtml(evidenceGradeLabel(evidenceData.grade))}</dd>
             </div>
             <div class="metric">
               <dt>Coverage</dt>

@@ -163,3 +163,45 @@ class TestSentimentSummary(unittest.TestCase):
         )
         self.assertEqual(len(mixed.evidence.drivers), 3)
         self.assertEqual(mixed.evidence.drivers[0].article_id, "a1")
+
+    def test_equal_impact_drivers_use_article_id_order_and_retain_counter(self) -> None:
+        now = datetime(2026, 7, 25, 12, 0, tzinfo=timezone.utc)
+        article_ids = ["a3", "a1", "a2", "a4"]
+        articles = {
+            article_id: NewsArticle(
+                article_id=article_id,
+                title=f"Headline {article_id}",
+                description=f"Description {article_id}",
+                url=f"https://example.com/{article_id}",
+                source="Example",
+                published_at=now,
+            )
+            for article_id in article_ids
+        }
+        results = [
+            ArticleSentiment(
+                article_id=article_id,
+                label="negative" if article_id == "a2" else "positive",
+                score=-0.8 if article_id == "a2" else 0.8,
+                confidence=0.8,
+                reason="Equal-impact evidence",
+            )
+            for article_id in article_ids
+        ]
+
+        with patch("stock_sentiment.sentiment._utcnow", return_value=now):
+            summary = summarize_sentiment(
+                ticker="XYZ",
+                query="XYZ",
+                results=results,
+                article_by_id=articles,
+            )
+
+        self.assertEqual(
+            [driver.article_id for driver in summary.evidence.drivers],
+            ["a1", "a2", "a3"],
+        )
+        self.assertEqual(
+            [driver.direction for driver in summary.evidence.drivers],
+            ["positive", "negative", "positive"],
+        )

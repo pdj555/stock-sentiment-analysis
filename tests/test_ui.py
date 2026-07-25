@@ -155,6 +155,20 @@ class TestUi(unittest.TestCase):
         self.assertIn("<dt>Coverage</dt>", UI_HTML)
         self.assertIn("<dt>Agreement</dt>", UI_HTML)
 
+    def test_ui_maps_machine_enums_to_display_labels(self) -> None:
+        self.assertIn('buy: "Bullish"', UI_HTML)
+        self.assertIn('sell: "Bearish"', UI_HTML)
+        self.assertIn('hold: "No edge"', UI_HTML)
+        self.assertIn('limited: "Limited"', UI_HTML)
+        self.assertIn('moderate: "Moderate"', UI_HTML)
+        self.assertIn('strong: "Strong"', UI_HTML)
+        self.assertIn("signalLabel(summaryData.signal)", UI_HTML)
+        self.assertIn("evidenceGradeLabel(evidenceData.grade)", UI_HTML)
+
+        payload = _build_response_payload(_fake_result())
+        self.assertEqual(payload["summary"]["signal"], "buy")
+        self.assertEqual(payload["evidence"]["grade"], "limited")
+
     def test_build_response_payload_merges_article_sentiment(self) -> None:
         payload = _build_response_payload(_fake_result())
 
