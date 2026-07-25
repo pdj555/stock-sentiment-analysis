@@ -1,4 +1,4 @@
-import type { SentimentLabel, Signal, Tone } from "./types";
+import type { EvidenceGrade, SentimentLabel, Signal, Tone } from "./types";
 
 const MINUS = "−"; // proper minus sign
 
@@ -47,20 +47,15 @@ export function relativeTime(iso: string | null): string {
   return `${days}d ago`;
 }
 
-export const SIGNAL_COPY: Record<Signal, { word: string; line: string }> = {
-  buy: {
-    word: "Buy",
-    line: "Recent coverage leans clearly bullish.",
-  },
-  sell: {
-    word: "Sell",
-    line: "Recent coverage leans clearly bearish.",
-  },
-  hold: {
-    word: "Hold",
-    line: "Coverage is mixed, or conviction is still low.",
-  },
-};
+export const SIGNAL_COPY = {
+  buy: { word: "Bullish", line: "Recent coverage supports a bullish near-term read." },
+  sell: { word: "Bearish", line: "Recent coverage supports a bearish near-term read." },
+  hold: { word: "No edge", line: "The evidence is limited, mixed, or below the conviction threshold." },
+} satisfies Record<Signal, { word: string; line: string }>;
+
+export function evidenceGradeLabel(grade: EvidenceGrade): string {
+  return grade.charAt(0).toUpperCase() + grade.slice(1);
+}
 
 export const LABEL_COPY: Record<SentimentLabel, string> = {
   positive: "Positive",
