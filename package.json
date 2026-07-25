@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "tsx --test lib/server/providers.test.ts lib/server/openai.test.ts"
+    "test": "tsx --test lib/server/analysis.test.ts lib/server/providers.test.ts lib/server/openai.test.ts"
   },
   "dependencies": {
     "botid": "^1.5.11",

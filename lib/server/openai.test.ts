@@ -15,6 +15,12 @@ const ARTICLE: RawArticle = {
   publishedAt: null,
 };
 
+const SECOND_ARTICLE: RawArticle = {
+  ...ARTICLE,
+  articleId: "a2",
+  url: "https://example.com/a2",
+};
+
 const OK_PAYLOAD = {
   output_text: JSON.stringify({
     results: [
@@ -66,8 +72,22 @@ test("falls over from a rate-limited Ollama to the gateway", async () => {
   });
 
   assert.equal(result.results[0].label, "positive");
+  assert.equal(result.results[0].classified, true);
   assert.ok(calls.some((c) => c.includes("ollama.com")), "tried ollama");
   assert.ok(calls.some((c) => c.includes("ai-gateway.vercel.sh")), "tried gateway");
+});
+
+test("marks synthesized missing rows as unclassified", async () => {
+  stubFetch(() => new Response(JSON.stringify(OK_PAYLOAD), { status: 200 }));
+
+  const result = await classifyArticles({
+    ticker: "TSLA",
+    articles: [ARTICLE, SECOND_ARTICLE],
+    providers: [OLLAMA],
+  });
+
+  assert.equal(result.results[0].classified, true);
+  assert.equal(result.results[1].classified, false);
 });
 
 test("a rejected primary key (401) fails over to the fallback", async () => {
