@@ -305,7 +305,7 @@ UI_HTML = """<!doctype html>
 
       .summary-grid {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 0;
         border: 2px solid var(--primary);
         border-radius: 4px;
@@ -547,6 +547,14 @@ UI_HTML = """<!doctype html>
         return number.toFixed(2);
       }
 
+      function formatPercent(value) {
+        const number = Number(value ?? 0);
+        if (!Number.isFinite(number)) {
+          return "0%";
+        }
+        return `${Math.round(number * 100)}%`;
+      }
+
       function formatTime(value) {
         if (!value) {
           return "";
@@ -578,7 +586,7 @@ UI_HTML = """<!doctype html>
         articles.innerHTML = "";
       }
 
-      function renderSummary(summaryData) {
+      function renderSummary(summaryData, evidenceData) {
         const warningText = Array.isArray(summaryData.classification_warnings)
           ? summaryData.classification_warnings.join(" ")
           : "";
@@ -606,6 +614,18 @@ UI_HTML = """<!doctype html>
             <div class="metric">
               <dt>Articles</dt>
               <dd>${escapeHtml(summaryData.articles_analyzed)}</dd>
+            </div>
+            <div class="metric">
+              <dt>Evidence</dt>
+              <dd>${escapeHtml(evidenceData.grade)}</dd>
+            </div>
+            <div class="metric">
+              <dt>Coverage</dt>
+              <dd>${escapeHtml(formatPercent(evidenceData.coverage))}</dd>
+            </div>
+            <div class="metric">
+              <dt>Agreement</dt>
+              <dd>${escapeHtml(formatPercent(evidenceData.agreement))}</dd>
             </div>
           </dl>
           ${warningHtml}
@@ -672,7 +692,7 @@ UI_HTML = """<!doctype html>
             throw new Error(payload.error?.message || "The request failed.");
           }
 
-          renderSummary(payload.summary);
+          renderSummary(payload.summary, payload.evidence || {});
           renderArticles(payload.articles || []);
 
           const asOf = formatTime(payload.summary.as_of);
@@ -790,6 +810,7 @@ def _build_response_payload(result: AnalysisRunResult) -> dict[str, object]:
                 "score": sentiment.score if sentiment else 0.0,
                 "confidence": sentiment.confidence if sentiment else 0.0,
                 "reason": sentiment.reason if sentiment else None,
+                "classified": sentiment.classified if sentiment else False,
             }
         )
 
@@ -809,6 +830,7 @@ def _build_response_payload(result: AnalysisRunResult) -> dict[str, object]:
             "lookback_days": result.lookback_days,
             "article_cap": result.article_cap,
         },
+        "evidence": result.summary.evidence.to_dict(),
         "articles": articles_payload,
     }
 

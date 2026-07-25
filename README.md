@@ -1,6 +1,6 @@
 # Stock Sentiment Analysis
 
-Recent equity news, classified and summarized. CLI, Next.js app, deployable to Vercel or Fly.
+Recent equity news distilled into an evidence-backed near-term decision brief. Every result shows coverage, agreement, and the headlines driving the conclusion.
 
 ```mermaid
 flowchart LR
@@ -34,6 +34,8 @@ npm install && npm run dev   # http://localhost:3000
 | Python UI | `python3 -m stock_sentiment ui` |
 
 News sources: NewsAPI when `NEWSAPI_KEY` is set, otherwise Google News RSS. Partial classification failures are reported as degraded runs — not silent neutral scores.
+
+`buy`, `sell`, and `hold` remain stable machine-readable values in JSON. The UI renders them as `Bullish`, `Bearish`, and `No edge`. Limited evidence always returns `hold`. The decision brief is derived from the article classifications, so it makes no extra AI call.
 
 JSON output:
 

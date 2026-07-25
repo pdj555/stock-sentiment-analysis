@@ -13,7 +13,13 @@ from unittest.mock import patch
 from app import app as deployed_app
 from stock_sentiment.errors import ConfigurationError
 from stock_sentiment.runtime import AnalysisRunResult
-from stock_sentiment.types import ArticleSentiment, NewsArticle, SentimentSummary
+from stock_sentiment.types import (
+    ArticleSentiment,
+    EvidenceDriver,
+    EvidenceProfile,
+    NewsArticle,
+    SentimentSummary,
+)
 from stock_sentiment.ui import (
     UI_HTML,
     _build_response_payload,
@@ -53,6 +59,26 @@ def _fake_result(
                 reason="Demand outlook improved.",
             )
         ],
+        evidence=EvidenceProfile(
+            grade="limited",
+            coverage=0.5,
+            agreement=0.75,
+            classified_articles=1,
+            total_articles=2,
+            drivers=(
+                EvidenceDriver(
+                    article_id="a1",
+                    title="Example article",
+                    url="https://example.com/article",
+                    source="Example",
+                    published_at=datetime(2025, 1, 1, 15, 30, tzinfo=timezone.utc),
+                    direction="positive",
+                    impact=0.34,
+                    confidence=0.81,
+                    reason="Demand outlook improved.",
+                ),
+            ),
+        ),
         classification_degraded=bool(classification_warnings),
         classification_warnings=classification_warnings,
     )
@@ -125,6 +151,9 @@ class TestUi(unittest.TestCase):
         self.assertIn("What ticker should we read?", UI_HTML)
         self.assertIn('id="ticker"', UI_HTML)
         self.assertIn("/api/analyze", UI_HTML)
+        self.assertIn("<dt>Evidence</dt>", UI_HTML)
+        self.assertIn("<dt>Coverage</dt>", UI_HTML)
+        self.assertIn("<dt>Agreement</dt>", UI_HTML)
 
     def test_build_response_payload_merges_article_sentiment(self) -> None:
         payload = _build_response_payload(_fake_result())
@@ -136,8 +165,15 @@ class TestUi(unittest.TestCase):
         self.assertEqual(payload["summary"]["article_cap"], 18)
         self.assertFalse(payload["summary"]["classification_degraded"])
         self.assertEqual(payload["summary"]["classification_warnings"], [])
+        self.assertEqual(payload["evidence"]["grade"], "limited")
+        self.assertEqual(payload["evidence"]["coverage"], 0.5)
+        self.assertEqual(payload["evidence"]["agreement"], 0.75)
+        self.assertEqual(payload["evidence"]["classified_articles"], 1)
+        self.assertEqual(payload["evidence"]["total_articles"], 2)
+        self.assertEqual(payload["evidence"]["drivers"][0]["article_id"], "a1")
         self.assertEqual(payload["articles"][0]["reason"], "Demand outlook improved.")
         self.assertEqual(payload["articles"][0]["label"], "positive")
+        self.assertTrue(payload["articles"][0]["classified"])
 
     def test_build_response_payload_includes_classification_warning_state(self) -> None:
         payload = _build_response_payload(
