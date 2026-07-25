@@ -22,6 +22,7 @@ export interface ArticleSentiment {
   score: number;
   confidence: number;
   reason: string | null;
+  classified: boolean;
 }
 
 export interface ClassificationResult {
@@ -368,6 +369,7 @@ export async function classifyArticles(options: {
         typeof reason === "string" && reason.trim()
           ? truncate(reason, 140)
           : null,
+      classified: true,
     });
   }
 
@@ -385,6 +387,7 @@ export async function classifyArticles(options: {
         score: 0,
         confidence: 0,
         reason: "No classification returned for this article.",
+        classified: false,
       });
     }
   }

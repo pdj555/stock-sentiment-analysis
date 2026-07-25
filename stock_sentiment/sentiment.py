@@ -10,7 +10,27 @@ from stock_sentiment import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 from stock_sentiment.cache import JsonDiskCache
 from stock_sentiment.errors import ConfigurationError, ParseError
 from stock_sentiment.openai_client import create_response, extract_output_text
-from stock_sentiment.types import ArticleSentiment, NewsArticle, SentimentLabel, SentimentSummary, Signal
+from stock_sentiment.types import (
+    ArticleSentiment,
+    EvidenceDriver,
+    EvidenceGrade,
+    EvidenceProfile,
+    NewsArticle,
+    SentimentLabel,
+    SentimentSummary,
+    Signal,
+)
+
+
+SCORE_THRESHOLD = 0.15
+MIN_SIGNAL_CONFIDENCE = 0.55
+MIN_SIGNAL_AGREEMENT = 0.55
+MIN_CLASSIFIED_ARTICLES = 3
+MIN_EVIDENCE_COVERAGE = 0.6
+STRONG_CLASSIFIED_ARTICLES = 5
+STRONG_EVIDENCE_COVERAGE = 0.8
+STRONG_EVIDENCE_AGREEMENT = 0.7
+STRONG_EVIDENCE_CONFIDENCE = 0.65
 
 
 def _utcnow() -> datetime:
@@ -21,17 +41,24 @@ def _clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
 
-def _recency_weight(*, published_at: datetime | None, half_life_hours: float) -> float:
+def _recency_weight(
+    *,
+    published_at: datetime | None,
+    half_life_hours: float,
+    now: datetime,
+) -> float:
     if published_at is None:
         return 1.0
     if published_at.tzinfo is None:
         published_at = published_at.replace(tzinfo=timezone.utc)
-    age_seconds = max(0.0, (_utcnow() - published_at).total_seconds())
+    age_seconds = max(0.0, (now - published_at).total_seconds())
     half_life_seconds = max(1.0, half_life_hours * 3600.0)
     return 0.5 ** (age_seconds / half_life_seconds)
 
 
-def _label_from_score(score: float, *, threshold: float = 0.15) -> SentimentLabel:
+def _label_from_score(
+    score: float, *, threshold: float = SCORE_THRESHOLD
+) -> SentimentLabel:
     if score > threshold:
         return "positive"
     if score < -threshold:
@@ -42,11 +69,18 @@ def _label_from_score(score: float, *, threshold: float = 0.15) -> SentimentLabe
 def _signal_from_score(
     score: float,
     confidence: float,
+    grade: EvidenceGrade,
+    agreement: float,
     *,
-    threshold: float = 0.15,
-    min_confidence: float = 0.55,
+    threshold: float = SCORE_THRESHOLD,
+    min_confidence: float = MIN_SIGNAL_CONFIDENCE,
+    min_agreement: float = MIN_SIGNAL_AGREEMENT,
 ) -> Signal:
+    if grade == "limited":
+        return "hold"
     if confidence < min_confidence:
+        return "hold"
+    if agreement < min_agreement:
         return "hold"
     if score > threshold:
         return "buy"
@@ -241,6 +275,7 @@ def analyze_articles_with_openai(
             score=normalized_score,
             confidence=normalized_conf,
             reason=normalized_reason,
+            classified=True,
         )
 
     results: list[ArticleSentiment] = []
@@ -256,6 +291,7 @@ def analyze_articles_with_openai(
                     score=0.0,
                     confidence=0.0,
                     reason="No classification returned" if include_reasons else None,
+                    classified=False,
                 )
             )
         else:
@@ -314,40 +350,131 @@ def summarize_sentiment(
     half_life_hours: float = 24.0,
     classification_warnings: list[str] | tuple[str, ...] = (),
 ) -> SentimentSummary:
-    weights: list[float] = []
-    weighted_scores: list[float] = []
-    recency_weights: list[float] = []
+    as_of = _utcnow()
+    total_weight = 0.0
+    total_recency = 0.0
+    weighted_score_sum = 0.0
+    directional_impact = 0.0
+    absolute_directional_impact = 0.0
+    candidates: list[EvidenceDriver] = []
 
     for r in results:
         article = article_by_id.get(r.article_id)
         recency = _recency_weight(
             published_at=article.published_at if article else None,
             half_life_hours=half_life_hours,
+            now=as_of,
         )
-        weight = recency * _clamp(r.confidence, 0.0, 1.0)
-        weights.append(weight)
-        recency_weights.append(recency)
-        weighted_scores.append(r.score * weight)
+        confidence = _clamp(r.confidence, 0.0, 1.0)
+        weight = recency * confidence
+        impact = r.score * weight
+        total_weight += weight
+        total_recency += recency
+        weighted_score_sum += impact
+        directional_impact += impact
+        absolute_directional_impact += abs(impact)
 
-    total_weight = sum(weights) if weights else 0.0
-    score = sum(weighted_scores) / total_weight if total_weight > 0 else 0.0
+        if r.classified and r.label != "neutral" and article is not None:
+            candidates.append(
+                EvidenceDriver(
+                    article_id=article.article_id,
+                    title=article.title,
+                    url=article.url,
+                    source=article.source,
+                    published_at=article.published_at,
+                    direction="positive" if impact >= 0 else "negative",
+                    impact=impact,
+                    confidence=confidence,
+                    reason=r.reason,
+                )
+            )
+
+    score = weighted_score_sum / total_weight if total_weight > 0 else 0.0
     score = float(_clamp(score, -1.0, 1.0))
 
-    total_recency = sum(recency_weights) if recency_weights else 0.0
     confidence = total_weight / total_recency if total_recency > 0 else 0.0
     confidence = float(_clamp(confidence, 0.0, 1.0))
+    classified_articles = sum(1 for result in results if result.classified)
+    total_articles = len(article_by_id)
+    coverage = (
+        classified_articles / total_articles if total_articles > 0 else 0.0
+    )
+    agreement = (
+        abs(directional_impact) / absolute_directional_impact
+        if absolute_directional_impact > 0
+        else 0.0
+    )
+
+    grade: EvidenceGrade
+    if (
+        classified_articles < MIN_CLASSIFIED_ARTICLES
+        or coverage < MIN_EVIDENCE_COVERAGE
+    ):
+        grade = "limited"
+    elif (
+        classified_articles >= STRONG_CLASSIFIED_ARTICLES
+        and coverage >= STRONG_EVIDENCE_COVERAGE
+        and agreement >= STRONG_EVIDENCE_AGREEMENT
+        and confidence >= STRONG_EVIDENCE_CONFIDENCE
+    ):
+        grade = "strong"
+    else:
+        grade = "moderate"
+
+    ranked = sorted(
+        candidates,
+        key=lambda driver: (-abs(driver.impact), driver.article_id),
+    )
+    drivers: list[EvidenceDriver] = []
+    selected_ids: set[str] = set()
+
+    def add_driver(driver: EvidenceDriver | None) -> None:
+        if (
+            driver is None
+            or driver.article_id in selected_ids
+            or len(drivers) >= 3
+        ):
+            return
+        selected_ids.add(driver.article_id)
+        drivers.append(driver)
+
+    strongest = ranked[0] if ranked else None
+    add_driver(strongest)
+    if strongest is not None:
+        add_driver(
+            next(
+                (
+                    driver
+                    for driver in ranked
+                    if driver.direction != strongest.direction
+                ),
+                None,
+            )
+        )
+    for driver in ranked:
+        add_driver(driver)
+
+    evidence = EvidenceProfile(
+        grade=grade,
+        coverage=coverage,
+        agreement=agreement,
+        classified_articles=classified_articles,
+        total_articles=total_articles,
+        drivers=tuple(drivers),
+    )
     label = _label_from_score(score)
 
     return SentimentSummary(
         ticker=ticker,
         query=query,
-        as_of=_utcnow(),
+        as_of=as_of,
         score=score,
         label=label,
         confidence=confidence,
-        signal=_signal_from_score(score, confidence),
-        articles_analyzed=len(results),
+        signal=_signal_from_score(score, confidence, grade, agreement),
+        articles_analyzed=classified_articles,
         results=results,
+        evidence=evidence,
         classification_degraded=bool(classification_warnings),
         classification_warnings=tuple(classification_warnings),
     )
@@ -442,6 +569,7 @@ def analyze_with_cache(
             score=normalized_score,
             confidence=normalized_confidence,
             reason=normalized_reason,
+            classified=True,
         )
 
     for a in articles:
@@ -527,6 +655,7 @@ def analyze_with_cache(
                 score=0.0,
                 confidence=0.0,
                 reason="No classification returned" if include_reasons else None,
+                classified=False,
             )
         )
 

@@ -13,6 +13,9 @@ import { resolveProviders } from "./providers";
 import type {
   AnalysisArticle,
   AnalysisResult,
+  EvidenceDriver,
+  EvidenceGrade,
+  EvidenceProfile,
   SentimentLabel,
   Signal,
 } from "@/lib/types";
@@ -22,6 +25,13 @@ const MAX_ARTICLES = 18;
 const HALF_LIFE_HOURS = 24;
 const SCORE_THRESHOLD = 0.15;
 const MIN_SIGNAL_CONFIDENCE = 0.55;
+const MIN_SIGNAL_AGREEMENT = 0.55;
+const MIN_CLASSIFIED_ARTICLES = 3;
+const MIN_EVIDENCE_COVERAGE = 0.6;
+const STRONG_CLASSIFIED_ARTICLES = 5;
+const STRONG_EVIDENCE_COVERAGE = 0.8;
+const STRONG_EVIDENCE_AGREEMENT = 0.7;
+const STRONG_EVIDENCE_CONFIDENCE = 0.65;
 
 const SOURCE_LABELS: Record<NewsSource, string> = {
   newsapi: "NewsAPI",
@@ -67,8 +77,15 @@ function labelFromScore(score: number): SentimentLabel {
   return "neutral";
 }
 
-function signalFromScore(score: number, confidence: number): Signal {
+function signalFromScore(
+  score: number,
+  confidence: number,
+  grade: EvidenceGrade,
+  agreement: number,
+): Signal {
+  if (grade === "limited") return "hold";
   if (confidence < MIN_SIGNAL_CONFIDENCE) return "hold";
+  if (agreement < MIN_SIGNAL_AGREEMENT) return "hold";
   if (score > SCORE_THRESHOLD) return "buy";
   if (score < -SCORE_THRESHOLD) return "sell";
   return "hold";
@@ -126,7 +143,7 @@ export async function analyze(rawTicker: string): Promise<AnalysisResult> {
   });
   warnings.push(...classificationWarnings);
 
-  const summary = summarize({
+  const { summary, evidence } = summarizeAnalysis({
     ticker,
     source,
     articles,
@@ -149,40 +166,61 @@ export async function analyze(rawTicker: string): Promise<AnalysisResult> {
       score: sentiment?.score ?? 0,
       confidence: sentiment?.confidence ?? 0,
       reason: sentiment?.reason ?? null,
+      classified: sentiment?.classified ?? false,
     };
   });
 
-  return { summary, articles: articlesPayload };
+  return { summary, evidence, articles: articlesPayload };
 }
 
-function summarize(input: {
+export function summarizeAnalysis(input: {
   ticker: string;
   source: NewsSource;
   articles: RawArticle[];
   results: ArticleSentiment[];
   warnings: string[];
   asOf: Date;
-}): AnalysisResult["summary"] {
+}): Pick<AnalysisResult, "summary" | "evidence"> {
   const { ticker, source, articles, results, warnings, asOf } = input;
   const now = asOf.getTime();
-  const publishedById = new Map(
-    articles.map((article) => [article.articleId, article.publishedAt]),
-  );
+  const articlesById = new Map(articles.map((article) => [article.articleId, article]));
 
   let totalWeight = 0;
   let totalRecency = 0;
   let weightedScoreSum = 0;
+  let directionalImpact = 0;
+  let absoluteDirectionalImpact = 0;
+  const candidates: EvidenceDriver[] = [];
 
   for (const result of results) {
+    const article = articlesById.get(result.articleId);
     const recency = recencyWeight(
-      publishedById.get(result.articleId) ?? null,
+      article?.publishedAt ?? null,
       HALF_LIFE_HOURS,
       now,
     );
-    const weight = recency * clamp(result.confidence, 0, 1);
+    const confidence = clamp(result.confidence, 0, 1);
+    const weight = recency * confidence;
+    const impact = result.score * weight;
     totalWeight += weight;
     totalRecency += recency;
-    weightedScoreSum += result.score * weight;
+    weightedScoreSum += impact;
+    directionalImpact += impact;
+    absoluteDirectionalImpact += Math.abs(impact);
+
+    if (result.classified && result.label !== "neutral" && article) {
+      candidates.push({
+        article_id: article.articleId,
+        title: article.title,
+        url: article.url,
+        source: article.source,
+        published_at: article.publishedAt?.toISOString() ?? null,
+        direction: impact >= 0 ? "positive" : "negative",
+        impact,
+        confidence,
+        reason: result.reason,
+      });
+    }
   }
 
   const score = clamp(
@@ -195,14 +233,61 @@ function summarize(input: {
     0,
     1,
   );
+  const classifiedArticles = results.filter((result) => result.classified).length;
+  const totalArticles = articles.length;
+  const coverage = totalArticles > 0 ? classifiedArticles / totalArticles : 0;
+  const agreement =
+    absoluteDirectionalImpact > 0
+      ? Math.abs(directionalImpact) / absoluteDirectionalImpact
+      : 0;
+  const grade: EvidenceGrade =
+    classifiedArticles < MIN_CLASSIFIED_ARTICLES || coverage < MIN_EVIDENCE_COVERAGE
+      ? "limited"
+      : classifiedArticles >= STRONG_CLASSIFIED_ARTICLES &&
+          coverage >= STRONG_EVIDENCE_COVERAGE &&
+          agreement >= STRONG_EVIDENCE_AGREEMENT &&
+          confidence >= STRONG_EVIDENCE_CONFIDENCE
+        ? "strong"
+        : "moderate";
 
-  return {
+  const ranked = candidates.sort(
+    (left, right) =>
+      Math.abs(right.impact) - Math.abs(left.impact) ||
+      left.article_id.localeCompare(right.article_id),
+  );
+  const drivers: EvidenceDriver[] = [];
+  const selectedIds = new Set<string>();
+  const addDriver = (driver: EvidenceDriver | undefined) => {
+    if (!driver || selectedIds.has(driver.article_id) || drivers.length >= 3) return;
+    selectedIds.add(driver.article_id);
+    drivers.push(driver);
+  };
+
+  const strongest = ranked[0];
+  addDriver(strongest);
+  if (strongest) {
+    addDriver(ranked.find((driver) => driver.direction !== strongest.direction));
+  }
+  for (const driver of ranked) {
+    addDriver(driver);
+  }
+
+  const evidence: EvidenceProfile = {
+    grade,
+    coverage,
+    agreement,
+    classified_articles: classifiedArticles,
+    total_articles: totalArticles,
+    drivers,
+  };
+
+  const summary = {
     ticker,
-    signal: signalFromScore(score, confidence),
+    signal: signalFromScore(score, confidence, grade, agreement),
     label: labelFromScore(score),
     score,
     confidence,
-    articles_analyzed: results.length,
+    articles_analyzed: classifiedArticles,
     classification_degraded: warnings.length > 0,
     classification_warnings: warnings,
     as_of: asOf.toISOString(),
@@ -211,4 +296,6 @@ function summarize(input: {
     lookback_days: LOOKBACK_DAYS,
     article_cap: MAX_ARTICLES,
   };
+
+  return { summary, evidence };
 }
