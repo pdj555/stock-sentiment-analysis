@@ -24,7 +24,7 @@ OPENAI_API_KEY=your_openai_key
 Optional:
 ```
 NEWSAPI_KEY=your_newsapi_key  # for --source newsapi, and lets --source auto prefer NewsAPI
-OPENAI_MODEL=gpt-5-nano-2025-08-07
+OPENAI_MODEL=gpt-5.6-luna
 OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
@@ -39,13 +39,13 @@ The Python CLI prefers `OLLAMA_*` over `OPENAI_*`.
 
 ### Model routing (web app)
 
-The web app picks its provider from the active model id: a bare id (`gpt-oss:120b`, `gemma4:31b`) runs on free Ollama Cloud; a `provider/model` id (`anthropic/claude-sonnet-5`, `openai/gpt-5.6-sol`) runs on the Vercel AI Gateway. One knob selects it:
+The web app picks its provider from the active model id: a bare id (`gpt-oss:120b`) runs on Ollama Cloud; a `provider/model` id (`openai/gpt-5.6-luna`, `anthropic/claude-haiku-4-5`) runs on the Vercel AI Gateway. One knob selects it:
 ```
-AI_MODEL=gpt-oss:120b                   # free Ollama Cloud default (bare id)
-# AI_MODEL=anthropic/claude-sonnet-5    # premium via the gateway (provider/model id)
+AI_MODEL=openai/gpt-5.6-luna            # default; Vercel AI Gateway (OpenAI)
+# AI_MODEL=gpt-oss:120b                 # Ollama Cloud (bare id)
 # AI_FALLBACK_MODEL=...                 # optional second route if the primary is capped/down
 ```
-Ollama ids need `OLLAMA_API_KEY`; gateway ids authenticate with `AI_GATEWAY_API_KEY`, or automatically with `VERCEL_OIDC_TOKEN` on Vercel. Anonymous requests only ever use `AI_MODEL`, so premium models never run on public traffic unless the operator sets them. Unset `AI_MODEL` falls back to `OLLAMA_MODEL`, then `OPENAI_MODEL`, then `gpt-oss:120b`. Routing lives in `lib/server/providers.ts`. The Python CLI is unchanged (Ollama/OpenAI only).
+Ollama ids need `OLLAMA_API_KEY`; gateway ids authenticate with `AI_GATEWAY_API_KEY`, or automatically with `VERCEL_OIDC_TOKEN` on Vercel. Anonymous requests only ever use `AI_MODEL`. Unset `AI_MODEL` falls back to `OLLAMA_MODEL`, then `OPENAI_MODEL`, then `openai/gpt-5.6-luna`. Routing lives in `lib/server/providers.ts`. The Python CLI is unchanged (Ollama/OpenAI only).
 
 ### GitHub Actions secrets
 

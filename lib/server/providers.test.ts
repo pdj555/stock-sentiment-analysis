@@ -27,10 +27,11 @@ test("a provider/model id routes to the Vercel gateway", () => {
 
 test("the gateway falls back to the Vercel OIDC token when no key is set", () => {
   const [primary] = resolveProviders(
-    envFrom({ AI_MODEL: "openai/gpt-5.6-sol", VERCEL_OIDC_TOKEN: "oidc" }),
+    envFrom({ AI_MODEL: "openai/gpt-5.6-luna", VERCEL_OIDC_TOKEN: "oidc" }),
   );
   assert.equal(primary.name, "gateway");
   assert.equal(primary.apiKey, "oidc");
+  assert.equal(primary.model, "openai/gpt-5.6-luna");
 });
 
 test("AI_FALLBACK_MODEL adds a second route", () => {
@@ -60,10 +61,14 @@ test("a route with no key is dropped", () => {
   assert.deepEqual(resolveProviders(envFrom({ AI_MODEL: "gpt-oss:120b" })), []);
 });
 
-test("unset model env defaults to free Ollama gpt-oss:120b", () => {
-  const [primary] = resolveProviders(envFrom({ OLLAMA_API_KEY: "k" }));
-  assert.equal(primary.name, "ollama");
-  assert.equal(primary.model, "gpt-oss:120b");
+test("unset model env defaults to openai/gpt-5.6-luna on the gateway", () => {
+  const [primary] = resolveProviders(envFrom({ VERCEL_OIDC_TOKEN: "oidc" }));
+  assert.equal(primary.name, "gateway");
+  assert.equal(primary.model, "openai/gpt-5.6-luna");
+});
+
+test("Ollama key alone does not select the gateway default", () => {
+  assert.deepEqual(resolveProviders(envFrom({ OLLAMA_API_KEY: "k" })), []);
 });
 
 test("fallback eligibility covers auth, quota, not-found, and 5xx but not 400", () => {
