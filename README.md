@@ -47,9 +47,11 @@ python3 -m stock_sentiment analyze TSLA --format json --include-reasons
 
 | Variable | Role |
 | :-- | :-- |
-| `OPENAI_API_KEY` | Required for classification |
+| `OPENAI_API_KEY` | Required for classification (CLI; or `OLLAMA_API_KEY`) |
+| `OLLAMA_API_KEY` | Web app / Ollama Cloud. Bare `AI_MODEL` ids run here |
+| `AI_MODEL` | Web app model. Default: `gpt-oss:120b` (free Ollama Cloud) |
 | `NEWSAPI_KEY` | Optional; preferred in `--source auto` |
-| `OPENAI_MODEL` | Override model (see repo defaults) |
+| `OPENAI_MODEL` | CLI override model (see repo defaults) |
 
 **Test.**
 

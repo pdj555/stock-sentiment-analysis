@@ -1,13 +1,17 @@
 /**
  * AI provider resolution and fallback policy.
  *
- * The active model id decides where the request goes: a bare id (`glm-5.2`,
- * `gpt-oss:120b`) runs on cheap Ollama Cloud; a `provider/model` id
- * (`anthropic/claude-sonnet-5`, `openai/gpt-5.6-sol`) runs on the Vercel AI
- * Gateway. Both speak the OpenAI Responses API, so the request shape in
- * `openai.ts` is identical. `AI_MODEL` sets the primary; `AI_FALLBACK_MODEL`
- * optionally adds a second route for when the primary is capped or down.
+ * The active model id decides where the request goes: a bare id (`gpt-oss:120b`)
+ * runs on free Ollama Cloud; a `provider/model` id (`anthropic/claude-sonnet-5`,
+ * `openai/gpt-5.6-sol`) runs on the Vercel AI Gateway. Both speak the OpenAI
+ * Responses API, so the request shape in `openai.ts` is identical. `AI_MODEL`
+ * sets the primary; `AI_FALLBACK_MODEL` optionally adds a second route for when
+ * the primary is capped or down. Unset model env falls back to
+ * `DEFAULT_OLLAMA_MODEL`.
  */
+
+/** Free Ollama Cloud default when `AI_MODEL` / `OLLAMA_MODEL` / `OPENAI_MODEL` are unset. */
+export const DEFAULT_OLLAMA_MODEL = "gpt-oss:120b";
 
 export type ProviderName = "ollama" | "gateway";
 
@@ -40,12 +44,16 @@ function providerForModel(model: string, env: Env): Provider {
 
 /**
  * Ordered provider chain from the active model config. `AI_MODEL` is the
- * primary (falling back to the older `OLLAMA_MODEL`/`OPENAI_MODEL` vars);
- * `AI_FALLBACK_MODEL` is an optional second route. Only routes whose key is set
- * are kept.
+ * primary (falling back to the older `OLLAMA_MODEL`/`OPENAI_MODEL` vars, then
+ * `DEFAULT_OLLAMA_MODEL`); `AI_FALLBACK_MODEL` is an optional second route.
+ * Only routes whose key is set are kept.
  */
 export function resolveProviders(env: Env): Provider[] {
-  const primary = env("AI_MODEL") || env("OLLAMA_MODEL") || env("OPENAI_MODEL");
+  const primary =
+    env("AI_MODEL") ||
+    env("OLLAMA_MODEL") ||
+    env("OPENAI_MODEL") ||
+    DEFAULT_OLLAMA_MODEL;
   const fallback = env("AI_FALLBACK_MODEL");
 
   const providers: Provider[] = [];
