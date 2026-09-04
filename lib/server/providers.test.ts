@@ -9,11 +9,11 @@ function envFrom(values: Record<string, string>) {
 
 test("a bare model id routes to cheap Ollama Cloud", () => {
   const [primary] = resolveProviders(
-    envFrom({ AI_MODEL: "glm-5.2", OLLAMA_API_KEY: "k" }),
+    envFrom({ AI_MODEL: "gpt-oss:20b", OLLAMA_API_KEY: "k" }),
   );
   assert.equal(primary.name, "ollama");
   assert.equal(primary.baseUrl, "https://ollama.com/v1");
-  assert.equal(primary.model, "glm-5.2");
+  assert.equal(primary.model, "gpt-oss:20b");
 });
 
 test("a provider/model id routes to the Vercel gateway", () => {
@@ -27,16 +27,17 @@ test("a provider/model id routes to the Vercel gateway", () => {
 
 test("the gateway falls back to the Vercel OIDC token when no key is set", () => {
   const [primary] = resolveProviders(
-    envFrom({ AI_MODEL: "openai/gpt-5.6-sol", VERCEL_OIDC_TOKEN: "oidc" }),
+    envFrom({ AI_MODEL: "openai/gpt-5.6-luna", VERCEL_OIDC_TOKEN: "oidc" }),
   );
   assert.equal(primary.name, "gateway");
   assert.equal(primary.apiKey, "oidc");
+  assert.equal(primary.model, "openai/gpt-5.6-luna");
 });
 
 test("AI_FALLBACK_MODEL adds a second route", () => {
   const providers = resolveProviders(
     envFrom({
-      AI_MODEL: "glm-5.2",
+      AI_MODEL: "gpt-oss:120b",
       AI_FALLBACK_MODEL: "anthropic/claude-sonnet-5",
       OLLAMA_API_KEY: "k1",
       AI_GATEWAY_API_KEY: "k2",
@@ -57,10 +58,16 @@ test("older OLLAMA_MODEL / OPENAI_MODEL still work when AI_MODEL is unset", () =
 });
 
 test("a route with no key is dropped", () => {
-  assert.deepEqual(resolveProviders(envFrom({ AI_MODEL: "glm-5.2" })), []);
+  assert.deepEqual(resolveProviders(envFrom({ AI_MODEL: "gpt-oss:120b" })), []);
 });
 
-test("no model config yields an empty chain", () => {
+test("unset model env defaults to openai/gpt-5.6-luna on the gateway", () => {
+  const [primary] = resolveProviders(envFrom({ VERCEL_OIDC_TOKEN: "oidc" }));
+  assert.equal(primary.name, "gateway");
+  assert.equal(primary.model, "openai/gpt-5.6-luna");
+});
+
+test("Ollama key alone does not select the gateway default", () => {
   assert.deepEqual(resolveProviders(envFrom({ OLLAMA_API_KEY: "k" })), []);
 });
 
