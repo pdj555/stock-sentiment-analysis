@@ -40,8 +40,8 @@ runs:
           {
             echo "ai_provider=ollama-cloud"
             echo "ANTHROPIC_BASE_URL=https://ollama.com"
-            echo "ANTHROPIC_DEFAULT_SONNET_MODEL=glm-5:cloud"
-            echo "ANTHROPIC_DEFAULT_OPUS_MODEL=glm-5:cloud"
+            echo "ANTHROPIC_DEFAULT_SONNET_MODEL=glm-5.2:cloud"
+            echo "ANTHROPIC_DEFAULT_OPUS_MODEL=glm-5.2:cloud"
             echo "OPENAI_BASE_URL=https://ollama.com/v1"
             echo "OLLAMA_BASE_URL=https://ollama.com/v1"
             echo "OLLAMA_MODEL=gpt-oss:120b"
