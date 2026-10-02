@@ -21,8 +21,20 @@ const B = article("b");
 test("coerces score to the label's sign and clamps ranges", () => {
   const { results, warnings } = normalizeClassification(
     [
-      { article_id: "a", label: "positive", score: -0.4, confidence: 0.9, reason: "good" },
-      { article_id: "b", label: "negative", score: 0.7, confidence: 2, reason: "bad" },
+      {
+        article_id: "a",
+        label: "positive",
+        score: -0.4,
+        confidence: 0.9,
+        reason: "good",
+      },
+      {
+        article_id: "b",
+        label: "negative",
+        score: 0.7,
+        confidence: 2,
+        reason: "bad",
+      },
     ],
     [A, B],
   );
@@ -31,18 +43,40 @@ test("coerces score to the label's sign and clamps ranges", () => {
   // positive => abs(score)
   assert.deepEqual(
     results.find((r) => r.articleId === "a"),
-    { articleId: "a", label: "positive", score: 0.4, confidence: 0.9, reason: "good" },
+    {
+      articleId: "a",
+      label: "positive",
+      score: 0.4,
+      confidence: 0.9,
+      reason: "good",
+      classified: true,
+    },
   );
   // negative => -abs(score); confidence clamped to [0,1]
   assert.deepEqual(
     results.find((r) => r.articleId === "b"),
-    { articleId: "b", label: "negative", score: -0.7, confidence: 1, reason: "bad" },
+    {
+      articleId: "b",
+      label: "negative",
+      score: -0.7,
+      confidence: 1,
+      reason: "bad",
+      classified: true,
+    },
   );
 });
 
 test("neutral forces a zero score", () => {
   const { results } = normalizeClassification(
-    [{ article_id: "a", label: "neutral", score: 0.8, confidence: 0.5, reason: "" }],
+    [
+      {
+        article_id: "a",
+        label: "neutral",
+        score: 0.8,
+        confidence: 0.5,
+        reason: "",
+      },
+    ],
     [A],
   );
   const row = results[0];
@@ -53,7 +87,15 @@ test("neutral forces a zero score", () => {
 
 test("clamps out-of-range scores to [-1, 1]", () => {
   const { results } = normalizeClassification(
-    [{ article_id: "a", label: "positive", score: 5, confidence: 0.5, reason: "x" }],
+    [
+      {
+        article_id: "a",
+        label: "positive",
+        score: 5,
+        confidence: 0.5,
+        reason: "x",
+      },
+    ],
     [A],
   );
   assert.equal(results[0].score, 1);
@@ -61,7 +103,15 @@ test("clamps out-of-range scores to [-1, 1]", () => {
 
 test("backfills a skipped article as neutral and warns", () => {
   const { results, warnings } = normalizeClassification(
-    [{ article_id: "a", label: "positive", score: 0.5, confidence: 0.6, reason: "x" }],
+    [
+      {
+        article_id: "a",
+        label: "positive",
+        score: 0.5,
+        confidence: 0.6,
+        reason: "x",
+      },
+    ],
     [A, B],
   );
   const b = results.find((r) => r.articleId === "b");
@@ -71,6 +121,7 @@ test("backfills a skipped article as neutral and warns", () => {
     score: 0,
     confidence: 0,
     reason: "No classification returned for this article.",
+    classified: false,
   });
   assert.ok(warnings.some((w) => w.includes("skipped 1 article")));
 });
@@ -78,8 +129,20 @@ test("backfills a skipped article as neutral and warns", () => {
 test("ignores duplicate ids, keeping the first, and warns", () => {
   const { results, warnings } = normalizeClassification(
     [
-      { article_id: "a", label: "positive", score: 0.5, confidence: 0.6, reason: "first" },
-      { article_id: "a", label: "negative", score: 0.9, confidence: 0.9, reason: "second" },
+      {
+        article_id: "a",
+        label: "positive",
+        score: 0.5,
+        confidence: 0.6,
+        reason: "first",
+      },
+      {
+        article_id: "a",
+        label: "negative",
+        score: 0.9,
+        confidence: 0.9,
+        reason: "second",
+      },
     ],
     [A],
   );
@@ -92,8 +155,20 @@ test("ignores duplicate ids, keeping the first, and warns", () => {
 test("ignores results for unrequested articles and warns", () => {
   const { results, warnings } = normalizeClassification(
     [
-      { article_id: "a", label: "positive", score: 0.5, confidence: 0.6, reason: "x" },
-      { article_id: "zzz", label: "positive", score: 0.5, confidence: 0.6, reason: "x" },
+      {
+        article_id: "a",
+        label: "positive",
+        score: 0.5,
+        confidence: 0.6,
+        reason: "x",
+      },
+      {
+        article_id: "zzz",
+        label: "positive",
+        score: 0.5,
+        confidence: 0.6,
+        reason: "x",
+      },
     ],
     [A],
   );
@@ -104,8 +179,20 @@ test("ignores results for unrequested articles and warns", () => {
 test("drops unreadable rows (bad label or non-finite numbers) and warns", () => {
   const { results, warnings } = normalizeClassification(
     [
-      { article_id: "a", label: "bullish", score: 0.5, confidence: 0.6, reason: "x" },
-      { article_id: "b", label: "positive", score: Number.NaN, confidence: 0.6, reason: "x" },
+      {
+        article_id: "a",
+        label: "bullish",
+        score: 0.5,
+        confidence: 0.6,
+        reason: "x",
+      },
+      {
+        article_id: "b",
+        label: "positive",
+        score: Number.NaN,
+        confidence: 0.6,
+        reason: "x",
+      },
     ],
     [A, B],
   );
@@ -115,7 +202,10 @@ test("drops unreadable rows (bad label or non-finite numbers) and warns", () => 
 });
 
 test("an empty batch yields no results and no warnings", () => {
-  assert.deepEqual(normalizeClassification([], []), { results: [], warnings: [] });
+  assert.deepEqual(normalizeClassification([], []), {
+    results: [],
+    warnings: [],
+  });
 });
 
 const EXPECTED = { results: [{ article_id: "a", label: "positive" }] };
@@ -142,4 +232,26 @@ test("extractJson recovers JSON wrapped in surrounding prose", () => {
 test("extractJson returns null when there is no JSON", () => {
   assert.equal(extractJson("I could not classify these articles."), null);
   assert.equal(extractJson(""), null);
+});
+
+test("extractJson preserves literal markup inside a JSON reason", () => {
+  const data = {
+    results: [
+      {
+        reason: "Mentions <think>earnings</think> and ```json in the headline",
+      },
+    ],
+  };
+  assert.deepEqual(extractJson(JSON.stringify(data)), data);
+  assert.deepEqual(
+    extractJson(`Here is the result:\n${JSON.stringify(data)}\nDone.`),
+    data,
+  );
+});
+
+test("extractJson rejects unfinished reasoning instead of treating it as the answer", () => {
+  assert.equal(
+    extractJson(`<think>Draft classification ${JSON.stringify(EXPECTED)}`),
+    null,
+  );
 });

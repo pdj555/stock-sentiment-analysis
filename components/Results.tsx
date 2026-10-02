@@ -2,13 +2,11 @@
 
 import { motion } from "framer-motion";
 import ArticleCard from "./ArticleCard";
-import ScoreGauge from "./ScoreGauge";
+import EvidenceBrief from "./EvidenceBrief";
 import {
   formatConfidence,
   formatScore,
   formatTime,
-  LABEL_COPY,
-  SIGNAL_COPY,
   tone,
 } from "@/lib/format";
 import type { AnalysisResult } from "@/lib/types";
@@ -33,7 +31,7 @@ interface ResultsProps {
 }
 
 export default function Results({ result, onReset }: ResultsProps) {
-  const { summary, articles } = result;
+  const { summary, evidence, articles } = result;
   const signalTone = tone(summary.signal);
   const asOf = formatTime(summary.as_of);
   const warning =
@@ -64,27 +62,7 @@ export default function Results({ result, onReset }: ResultsProps) {
         </button>
       </header>
 
-      <motion.section
-        className={`verdict nous-panel tone-${signalTone}`}
-        initial={{ opacity: 0, y: 24, scale: 0.99 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.7, ease: EASE }}
-      >
-        <span className="panel-legend">Signal analysis</span>
-        <ScoreGauge score={summary.score} tone={signalTone} />
-
-        <div className="verdict-main">
-          <h3 className="signal-line">
-            Signal:{" "}
-            <span className="signal-word">{SIGNAL_COPY[summary.signal].word}</span>
-          </h3>
-          <p className="verdict-line">{SIGNAL_COPY[summary.signal].line}</p>
-          <p className="metric-line">
-            Label: {LABEL_COPY[summary.label]} · Confidence:{" "}
-            {formatConfidence(summary.confidence)}
-          </p>
-        </div>
-      </motion.section>
+      <EvidenceBrief evidence={evidence} signal={summary.signal} />
 
       <div className="stats-wrap">
         <span className="panel-legend">Metrics</span>
@@ -94,30 +72,30 @@ export default function Results({ result, onReset }: ResultsProps) {
           initial="hidden"
           animate="show"
         >
-        <motion.div className={`stats-panel-item tone-${signalTone}`} variants={item}>
-          <p className="stat-line">
-            Score:{" "}
-            <span className="stat-value tinted">{formatScore(summary.score)}</span>
-          </p>
-        </motion.div>
-        <motion.div className="stats-panel-item" variants={item}>
-          <p className="stat-line">
-            Confidence:{" "}
-            <span className="stat-value">{formatConfidence(summary.confidence)}</span>
-          </p>
-        </motion.div>
-        <motion.div className="stats-panel-item" variants={item}>
-          <p className="stat-line">
-            Headlines:{" "}
-            <span className="stat-value">{summary.articles_analyzed}</span>
-          </p>
-        </motion.div>
-        <motion.div className="stats-panel-item" variants={item}>
-          <p className="stat-line">
-            Window:{" "}
-            <span className="stat-value">{summary.lookback_days}d</span>
-          </p>
-        </motion.div>
+          <motion.div className={`stats-panel-item tone-${signalTone}`} variants={item}>
+            <p className="stat-line">
+              Score:{" "}
+              <span className="stat-value tinted">{formatScore(summary.score)}</span>
+            </p>
+          </motion.div>
+          <motion.div className="stats-panel-item" variants={item}>
+            <p className="stat-line">
+              Confidence:{" "}
+              <span className="stat-value">{formatConfidence(summary.confidence)}</span>
+            </p>
+          </motion.div>
+          <motion.div className="stats-panel-item" variants={item}>
+            <p className="stat-line">
+              Headlines:{" "}
+              <span className="stat-value">{summary.articles_analyzed}</span>
+            </p>
+          </motion.div>
+          <motion.div className="stats-panel-item" variants={item}>
+            <p className="stat-line">
+              Lookback:{" "}
+              <span className="stat-value">{summary.lookback_days}d</span>
+            </p>
+          </motion.div>
         </motion.div>
       </div>
 

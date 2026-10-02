@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -15,7 +16,13 @@ from unittest.mock import patch
 from stock_sentiment import cli
 from stock_sentiment.errors import ConfigurationError
 from stock_sentiment.runtime import AnalysisRunResult
-from stock_sentiment.types import ArticleSentiment, NewsArticle, SentimentSummary
+from stock_sentiment.types import (
+    ArticleSentiment,
+    EvidenceDriver,
+    EvidenceProfile,
+    NewsArticle,
+    SentimentSummary,
+)
 
 
 def _fake_article(article_id: str = "a1") -> NewsArticle:
@@ -52,6 +59,26 @@ def _fake_summary(
                 reason="reason" if include_reason else None,
             )
         ],
+        evidence=EvidenceProfile(
+            grade="limited",
+            coverage=0.5,
+            agreement=0.75,
+            classified_articles=1,
+            total_articles=2,
+            drivers=(
+                EvidenceDriver(
+                    article_id="a1",
+                    title="t",
+                    url="https://example.com",
+                    source="Example",
+                    published_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                    direction="positive",
+                    impact=0.4,
+                    confidence=0.5,
+                    reason="reason" if include_reason else None,
+                ),
+            ),
+        ),
         classification_degraded=bool(classification_warnings),
         classification_warnings=classification_warnings,
     )
@@ -87,7 +114,28 @@ class TestCli(unittest.TestCase):
         self.assertIn("Google News RSS", rendered)
         self.assertIn("3-day lookback", rendered)
         self.assertIn("25-article cap", rendered)
+        self.assertIn("signal no edge", rendered)
+        self.assertIn("evidence limited, coverage 50%, agreement 75%", rendered)
         self.assertNotIn("lookback_days=", rendered)
+
+    def test_format_text_renders_human_signal_copy(self) -> None:
+        summary = _fake_summary(include_reason=False)
+
+        bullish = cli._format_text(
+            replace(summary, signal="buy"),
+            source_label="Google News RSS",
+            lookback_days=3,
+            article_cap=25,
+        )
+        bearish = cli._format_text(
+            replace(summary, signal="sell"),
+            source_label="Google News RSS",
+            lookback_days=3,
+            article_cap=25,
+        )
+
+        self.assertIn("signal bullish", bullish)
+        self.assertIn("signal bearish", bearish)
 
     def test_format_text_surfaces_classification_warnings(self) -> None:
         rendered = cli._format_text(
@@ -171,6 +219,13 @@ class TestCli(unittest.TestCase):
         self.assertEqual(payload["article_cap"], 25)
         self.assertFalse(payload["classification_degraded"])
         self.assertEqual(payload["classification_warnings"], [])
+        self.assertEqual(payload["evidence"]["grade"], "limited")
+        self.assertEqual(payload["evidence"]["coverage"], 0.5)
+        self.assertEqual(payload["evidence"]["agreement"], 0.75)
+        self.assertEqual(payload["evidence"]["classified_articles"], 1)
+        self.assertEqual(payload["evidence"]["total_articles"], 2)
+        self.assertEqual(payload["evidence"]["drivers"][0]["article_id"], "a1")
+        self.assertTrue(payload["results"][0]["classified"])
         self.assertNotIn("reason", payload["results"][0])
         self.assertFalse(mock_run_analysis.call_args.args[0].include_reasons)
 

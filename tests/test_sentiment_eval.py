@@ -100,7 +100,7 @@ class TestSentimentEval(unittest.TestCase):
                     "a2": _article("a2", age_hours=72),
                 },
                 "expected_label": "positive",
-                "expected_signal": "buy",
+                "expected_signal": "hold",
                 "score_range": (0.68, 0.70),
                 "confidence_range": (0.89, 0.91),
             },

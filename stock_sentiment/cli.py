@@ -39,11 +39,19 @@ def _format_text(
     conf = f"{summary.confidence:.2f}"
     as_of = summary.as_of.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     article_word = "article" if summary.articles_analyzed == 1 else "articles"
+    signal_label = {
+        "buy": "bullish",
+        "sell": "bearish",
+        "hold": "no edge",
+    }[summary.signal]
     rendered = (
         f"{summary.ticker} sentiment {score} ({summary.label}, confidence {conf}), "
-        f"signal {summary.signal}, from {summary.articles_analyzed} {article_word} "
+        f"signal {signal_label}, from {summary.articles_analyzed} {article_word} "
         f"out of a {article_cap}-article cap using {source_label} "
-        f"over a {lookback_days}-day lookback as of {as_of}"
+        f"over a {lookback_days}-day lookback as of {as_of}, "
+        f"evidence {summary.evidence.grade}, "
+        f"coverage {summary.evidence.coverage:.0%}, "
+        f"agreement {summary.evidence.agreement:.0%}"
     )
     if summary.classification_degraded and summary.classification_warnings:
         rendered += f" Warning: {' '.join(summary.classification_warnings)}"

@@ -62,10 +62,12 @@ class TestSentimentOpenAIContract(unittest.TestCase):
         self.assertNotIn("response_format", mocked.call_args.kwargs)
 
         self.assertEqual(batch.missing_article_ids, ("a2",))
+        self.assertTrue(batch.results[0].classified)
         self.assertEqual(batch.results[1].article_id, "a2")
         self.assertEqual(batch.results[1].label, "neutral")
         self.assertEqual(batch.results[1].confidence, 0.0)
         self.assertEqual(batch.results[1].reason, "No classification returned")
+        self.assertFalse(batch.results[1].classified)
 
     def test_analyze_articles_with_openai_counts_invalid_duplicate_and_unexpected_rows(self) -> None:
         response = {
@@ -145,6 +147,7 @@ class TestSentimentOpenAIContract(unittest.TestCase):
                     score=0.0,
                     confidence=0.0,
                     reason="No classification returned",
+                    classified=False,
                 ),
             ],
             missing_article_ids=("a2",),
@@ -175,3 +178,5 @@ class TestSentimentOpenAIContract(unittest.TestCase):
         )
         cached_article_ids = [call.args[1]["article_id"] for call in mock_cache_set.call_args_list]
         self.assertEqual(cached_article_ids, ["a1"])
+        self.assertEqual(summary.evidence.classified_articles, 1)
+        self.assertAlmostEqual(summary.evidence.coverage, 0.5)
