@@ -47,6 +47,8 @@ AI_MODEL=openai/gpt-5.6-luna            # default; Vercel AI Gateway (OpenAI)
 ```
 Ollama ids need `OLLAMA_API_KEY`; gateway ids authenticate with `AI_GATEWAY_API_KEY`, or automatically with `VERCEL_OIDC_TOKEN` on Vercel. Anonymous requests only ever use `AI_MODEL`. Unset `AI_MODEL` falls back to `OLLAMA_MODEL`, then `OPENAI_MODEL`, then `openai/gpt-5.6-luna`. Routing lives in `lib/server/providers.ts`. The Python CLI is unchanged (Ollama/OpenAI only).
 
+The web classifier lives in `lib/server/agent.ts`. It binds an explicit SDK model and client to each provider attempt, keeping concurrent requests isolated. Ollama uses Chat Completions with `reasoning_effort=none`; the gateway uses Responses with the existing JSON schema. The application owns retries under one shared 45-second deadline. SDK tracing and response storage are disabled.
+
 ### GitHub Actions secrets
 
 Set per repository in GitHub → Settings → Secrets → Actions. Never paste keys into chat, commits, or shell history.

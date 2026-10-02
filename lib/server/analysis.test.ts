@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { summarizeAnalysis } from "./analysis";
-import type { ArticleSentiment } from "./openai";
+import type { ArticleSentiment } from "./agent";
 import type { RawArticle } from "./news";
 
 const AS_OF = new Date("2026-07-25T12:00:00.000Z");

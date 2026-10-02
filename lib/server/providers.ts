@@ -3,8 +3,8 @@
  *
  * The active model id decides where the request goes: a bare id (`gpt-oss:120b`)
  * runs on Ollama Cloud; a `provider/model` id (`openai/gpt-5.6-luna`,
- * `anthropic/claude-haiku-4-5`) runs on the Vercel AI Gateway. Both speak the
- * OpenAI Responses API, so the request shape in `openai.ts` is identical.
+ * `anthropic/claude-haiku-4-5`) runs on the Vercel AI Gateway. The sentiment Agent uses
+ * Chat Completions for Ollama and the Responses API for the gateway.
  * `AI_MODEL` sets the primary; `AI_FALLBACK_MODEL` optionally adds a second
  * route for when the primary is capped or down. Unset model env falls back to
  * `DEFAULT_MODEL`.
