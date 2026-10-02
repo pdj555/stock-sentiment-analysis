@@ -73,6 +73,97 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Prefer a monotonic clock so wall-clock adjustments cannot extend a request. */
+function monotonicNow(): number {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+/**
+ * A single wall-clock budget shared by every retry and provider fallback for
+ * one classification. Individual `AbortSignal.timeout()` calls must be made
+ * with the remaining budget, rather than a fresh 45 seconds each time.
+ */
+class RequestDeadline {
+  private readonly expiresAt: number;
+
+  constructor(
+    timeoutMs: number,
+    private readonly now: () => number = monotonicNow,
+    private readonly timeoutSignal: (ms: number) => AbortSignal = AbortSignal.timeout.bind(AbortSignal),
+    private readonly pause: (ms: number) => Promise<void> = sleep,
+  ) {
+    this.expiresAt = this.now() + timeoutMs;
+  }
+
+  private remainingMs(): number {
+    return this.expiresAt - this.now();
+  }
+
+  private ensureRemaining(): number {
+    // Node's AbortSignal.timeout requires an integer. Rounding down also
+    // guarantees the signal cannot outlive the shared wall-clock budget.
+    const remaining = Math.floor(this.remainingMs());
+    if (remaining <= 0) throw new ProviderError(null);
+    return remaining;
+  }
+
+  signal(): AbortSignal {
+    return this.timeoutSignal(this.ensureRemaining());
+  }
+
+  async wait(ms: number): Promise<void> {
+    await this.pause(Math.min(ms, this.ensureRemaining()));
+    this.ensureRemaining();
+  }
+
+  expired(): boolean {
+    return this.remainingMs() <= 0;
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    error instanceof DOMException
+      ? error.name === "AbortError"
+      : error instanceof Error && error.name === "AbortError"
+  );
+}
+
+/** Network/body-stream failures emitted by undici and compatible fetch APIs. */
+function isBodyTransportError(error: unknown): boolean {
+  if (!(error instanceof TypeError)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message === "terminated" ||
+    message === "fetch failed" ||
+    message === "network error" ||
+    message.includes("socket hang up") ||
+    message.includes("connection reset") ||
+    message.includes("premature close")
+  );
+}
+
+/**
+ * Read a successful provider body under the shared deadline. Fetch resolves
+ * once headers arrive, so the body can still abort or overrun the budget.
+ */
+async function readResponseJson(
+  response: Response,
+  deadline: RequestDeadline,
+): Promise<unknown> {
+  try {
+    const body = await response.json();
+    if (deadline.expired()) throw new ProviderError(null);
+    return body;
+  } catch (error) {
+    if (error instanceof ProviderError) throw error;
+    if (deadline.expired() || isAbortError(error) || isBodyTransportError(error)) {
+      throw new ProviderError(null);
+    }
+    throw error;
+  }
+}
+
 /** Collapse whitespace and cap length, matching the Python `_truncate`. */
 function truncate(text: string, limit: number): string {
   const cleaned = text.split(/\s+/).filter(Boolean).join(" ");
@@ -168,11 +259,17 @@ function describeStatus(status: number | null): string {
  * transient failures (5xx, network, timeout). Returns the parsed JSON payload,
  * or throws a `ProviderError`.
  */
-async function callProvider(provider: Provider, body: unknown): Promise<unknown> {
+async function callProvider(
+  provider: Provider,
+  body: unknown,
+  deadline: RequestDeadline,
+): Promise<unknown> {
   const url = `${provider.baseUrl.replace(/\/+$/, "")}/responses`;
 
   for (let attempt = 0; ; attempt += 1) {
-    if (attempt > 0) await sleep(Math.min(2_000, 400 * 2 ** attempt));
+    if (attempt > 0) {
+      await deadline.wait(Math.min(2_000, 400 * 2 ** attempt));
+    }
 
     let response: Response;
     try {
@@ -183,15 +280,28 @@ async function callProvider(provider: Provider, body: unknown): Promise<unknown>
           "content-type": "application/json",
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: deadline.signal(),
         cache: "no-store",
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof ProviderError) throw error;
+      if (deadline.expired()) throw new ProviderError(null);
       if (attempt < TRANSIENT_RETRIES) continue;
       throw new ProviderError(null);
     }
 
-    if (response.ok) return response.json();
+    if (deadline.expired()) throw new ProviderError(null);
+    if (response.ok) {
+      try {
+        return await readResponseJson(response, deadline);
+      } catch (error) {
+        if (error instanceof ProviderError && error.status === null) {
+          if (deadline.expired() || attempt >= TRANSIENT_RETRIES) throw error;
+          continue;
+        }
+        throw error;
+      }
+    }
     if (response.status >= 500 && attempt < TRANSIENT_RETRIES) continue;
     throw new ProviderError(response.status);
   }
@@ -205,13 +315,14 @@ async function callProvider(provider: Provider, body: unknown): Promise<unknown>
 async function classifyWithFallback(
   providers: Provider[],
   buildBody: (model: string) => unknown,
+  deadline: RequestDeadline,
 ): Promise<unknown> {
   const failures: string[] = [];
 
   for (let i = 0; i < providers.length; i += 1) {
     const provider = providers[i];
     try {
-      return await callProvider(provider, buildBody(provider.model));
+      return await callProvider(provider, buildBody(provider.model), deadline);
     } catch (error) {
       const { status, message } = error as ProviderError;
       failures.push(`${provider.name}: ${message}`);
@@ -232,11 +343,33 @@ async function classifyWithFallback(
   throw new UpstreamError("No AI provider was available.");
 }
 
-export async function classifyArticles(options: {
+type ClassificationOptions = {
   ticker: string;
   articles: RawArticle[];
   providers: Provider[];
-}): Promise<ClassificationResult> {
+};
+
+type DeadlineDependencies = {
+  now: () => number;
+  timeoutSignal: (ms: number) => AbortSignal;
+  sleep?: (ms: number) => Promise<void>;
+};
+
+const defaultDeadlineDependencies: DeadlineDependencies = {
+  now: monotonicNow,
+  timeoutSignal: AbortSignal.timeout.bind(AbortSignal),
+};
+
+export async function classifyArticles(
+  options: ClassificationOptions,
+): Promise<ClassificationResult> {
+  return classifyArticlesWithDeadline(options, defaultDeadlineDependencies);
+}
+
+async function classifyArticlesWithDeadline(
+  options: ClassificationOptions,
+  deadlineDependencies: DeadlineDependencies,
+): Promise<ClassificationResult> {
   const { ticker, articles, providers } = options;
 
   if (articles.length === 0) {
@@ -247,6 +380,13 @@ export async function classifyArticles(options: {
       "Missing AI provider config. Set AI_MODEL plus a key for its route (OLLAMA_API_KEY, or AI_GATEWAY_API_KEY / VERCEL_OIDC_TOKEN). Add one to the project's environment variables, then try again.",
     );
   }
+
+  const deadline = new RequestDeadline(
+    REQUEST_TIMEOUT_MS,
+    deadlineDependencies.now,
+    deadlineDependencies.timeoutSignal,
+    deadlineDependencies.sleep,
+  );
 
   const system =
     "You are a precise financial news sentiment engine. " +
@@ -288,7 +428,7 @@ export async function classifyArticles(options: {
     max_output_tokens: MAX_OUTPUT_TOKENS,
   });
 
-  const response = await classifyWithFallback(providers, buildBody);
+  const response = await classifyWithFallback(providers, buildBody, deadline);
 
   const text = extractOutputText(response);
   if (!text) {
@@ -424,3 +564,6 @@ export async function classifyArticles(options: {
 
   return { results, warnings };
 }
+
+/** Internal seam for deterministic deadline tests; production uses the defaults above. */
+export const __testOnly = { classifyArticlesWithDeadline };
