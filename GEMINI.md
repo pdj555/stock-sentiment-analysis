@@ -18,7 +18,7 @@ This is a stdlib-only Python utility that analyzes the sentiment of recent news 
     # Optional (needed for --source newsapi, and lets --source auto prefer NewsAPI)
     NEWSAPI_KEY=your_newsapi_key_here
     # Optional
-    OPENAI_MODEL=gpt-5-nano-2025-08-07
+    OPENAI_MODEL=gpt-5.6-luna
     OPENAI_BASE_URL=https://api.openai.com/v1
     ```
 
