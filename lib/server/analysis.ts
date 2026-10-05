@@ -8,7 +8,7 @@
 
 import { ConfigError } from "./errors";
 import { fetchNews, type NewsSource, type RawArticle } from "./news";
-import { classifyArticles, type ArticleSentiment } from "./openai";
+import { classifyArticles, type ArticleSentiment } from "./agent";
 import { resolveProviders } from "./providers";
 import type {
   AnalysisArticle,
