@@ -12,9 +12,9 @@ flowchart LR
 
 ## How it works
 
-1. **Ingest.** NewsAPI when `NEWSAPI_KEY` is set, otherwise Google News RSS.
-2. **Classify.** One bounded model turn per article batch. Each article gets `buy`, `sell`, or `hold`.
-3. **Brief.** The decision brief is derived from the article classifications. No extra AI call, no second opinion layered on top.
+1. Ingest. NewsAPI when `NEWSAPI_KEY` is set, otherwise Google News RSS.
+2. Classify. One bounded model turn per article batch. Each article gets `buy`, `sell`, or `hold`.
+3. Brief. The decision brief is derived from the article classifications. No extra AI call, no second opinion layered on top.
 
 Classification failures are reported as degraded runs, not silent neutral scores. Limited evidence always returns `hold`. The machine-readable values stay stable in JSON; the UI renders them as Bullish, Bearish, and No edge.
 
