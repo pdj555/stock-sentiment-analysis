@@ -6,10 +6,10 @@ Continuously improve the codebase through active coding, refactoring, bug fixes,
 
 ## Core Principles
 
-- **Proactive**: Actively identify and fix issues without waiting for explicit requests
-- **High Value**: Every change must improve code quality, fix bugs, or add meaningful functionality
-- **Minimal & Focused**: Avoid over-engineering; implement only necessary changes
-- **Complete Fixes**: Target root causes, never implement temporary bandaid fixes
+- Proactive: Actively identify and fix issues without waiting for explicit requests
+- High Value: Every change must improve code quality, fix bugs, or add meaningful functionality
+- Minimal & Focused: Avoid over-engineering; implement only necessary changes
+- Complete Fixes: Target root causes, not temporary fixes
 
 ## Focus Areas
 
@@ -68,13 +68,13 @@ Continuously improve the codebase through active coding, refactoring, bug fixes,
 
 ## Current Codebase Issues to Address
 
-1. **Unused Import**: `Word` from textblob is imported but never used
-2. **Error Handling**: Limited error handling for API responses and data processing
-3. **Type Hints**: Missing type annotations
-4. **Documentation**: Functions lack docstrings
-5. **Code Structure**: Main execution code should be in `if __name__ == "__main__"` block
-6. **Testing**: No test coverage
-7. **Configuration**: Hardcoded stock symbol in main execution
+1. Unused Import: `Word` from textblob is imported but never used
+2. Error Handling: Limited error handling for API responses and data processing
+3. Type Hints: Missing type annotations
+4. Documentation: Functions lack docstrings
+5. Code Structure: Main execution code should be in `if __name__ == "__main__"` block
+6. Testing: No test coverage
+7. Configuration: Hardcoded stock symbol in main execution
 
 ## Implementation Guidelines
 

@@ -24,14 +24,14 @@ python3 -m stock_sentiment analyze TSLA
 ```
 
 - `python3 -m stock_sentiment analyze TSLA`: Fetches recent articles and outputs a sentiment summary.
-- `--format json --include-reasons`: Produces structured output suitable for downstream trading systems.
+- `--format json --include-reasons`: Produces structured JSON output.
 - `--no-cache` / `--cache-dir`: Control local caching of OpenAI classifications (cost/latency control).
 
 ## Coding Style & Naming Conventions
 
 - Follow PEP 8: 4-space indentation, `snake_case` for functions/variables, and minimal top-level side effects.
 - Keep changes small and readable; prefer clear function boundaries for fetching, analysis, and scoring.
-- No formatter/linter is configured in this repo today—if you introduce one, document it in `README.md`.
+- No formatter/linter is configured in this repo today. If you introduce one, document it in `README.md`.
 
 ## Testing Guidelines
 

@@ -4,10 +4,10 @@
 This is a stdlib-only Python utility that analyzes the sentiment of recent news articles for specific stock tickers. It can fetch news via NewsAPI (optional) or Google News RSS (fallback) and uses the OpenAI API to classify each article's expected price impact. It then aggregates those classifications into a single sentiment score and trading signal.
 
 ## Technology Stack
-*   **Language:** Python
-*   **HTTP:** `urllib` (standard library)
-*   **Configuration:** local `.env` loader (standard library)
-*   **APIs:** OpenAI (required), NewsAPI (optional)
+*   Language: Python
+*   HTTP: `urllib` (standard library)
+*   Configuration: local `.env` loader (standard library)
+*   APIs: OpenAI (required), NewsAPI (optional)
 
 ## Setup & Installation
 
@@ -41,7 +41,7 @@ python3 -m stock_sentiment analyze TSLA
 
 ## Development Conventions
 
-*   **Testing:** Standard library `unittest`, no network calls.
+*   Testing: Standard library `unittest`, no network calls.
     ```bash
     python3 -m unittest discover -s tests -p "test_*.py"
     ```

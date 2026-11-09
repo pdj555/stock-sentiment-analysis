@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a stdlib-only Python CLI that fetches recent news for a stock ticker and uses the OpenAI API to classify each article's expected price impact over the next 1–5 trading days. It aggregates those classifications into a single sentiment score and trading signal.
+This is a stdlib-only Python CLI that fetches recent news for a stock ticker and uses the OpenAI API to classify each article's expected price impact over the next 1-5 trading days. It aggregates those classifications into a single sentiment score and trading signal.
 
 ## Setup and Dependencies
 
@@ -39,7 +39,7 @@ The Python CLI prefers `OLLAMA_*` over `OPENAI_*`.
 
 ### Model routing (web app)
 
-The web app picks its provider from the active model id: a bare id (`gpt-oss:120b`) runs on Ollama Cloud; a `provider/model` id (`openai/gpt-5.6-luna`, `anthropic/claude-haiku-4-5`) runs on the Vercel AI Gateway. One knob selects it:
+The web app picks its provider from the active model id: a bare id (`gpt-oss:120b`) runs on Ollama Cloud; a `provider/model` id (`openai/gpt-5.6-luna`, `anthropic/claude-haiku-4-5`) runs on the Vercel AI Gateway. One variable selects it:
 ```
 AI_MODEL=openai/gpt-5.6-luna            # default; Vercel AI Gateway (OpenAI)
 # AI_MODEL=gpt-oss:120b                 # Ollama Cloud (bare id)
